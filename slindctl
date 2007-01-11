@@ -16,7 +16,7 @@ GNUARCH=`dpkg-architecture -a$ARCH -qDEB_HOST_GNU_TYPE 2>/dev/null` || true
 BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg miniperl apt"
 # list of host packages that we need to install before
 # we can even run package builder
-PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross g++-4.1-$GNUARCH i386-toolchain debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
+PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross g++-4.1-$GNUARCH i386-toolchain toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
 
 # hackaround for the case of non-existing locales
 export LC_ALL=C

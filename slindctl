@@ -124,7 +124,6 @@ bootstrap_host() {
 # 7. bootstrap $ARCH rootfs
 bootstrap_target() {
 	echo "=== bootstrap_target ==="
-	cp fstab inittab $TARGET/build
 	$ROOTCMD mkdir -p $TARGET/rootfs-$ARCH
 	$ROOTCMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $TARGET/etc/cross-shell.conf
 	$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLINDSRC," $TARGET/etc/cross-shell.conf

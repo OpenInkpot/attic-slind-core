@@ -2,11 +2,11 @@
 
 CONFIG_FILE=~/.slind-config
 if [ ! -f $CONFIG_FILE ]; then
-	echo "Cannot read config file, exiting."
-	exit 1
-else
-	. $CONFIG_FILE
+	echo "Config file $CONFIG_FILE not found, creating one for you."
+	cp /etc/slind/slind-config $CONFIG_FILE
 fi
+
+. $CONFIG_FILE
 
 CHROOTCMD="$ROOTCMD chroot $TARGET su - build -c"
 HOSTARCH=`dpkg --print-architecture`

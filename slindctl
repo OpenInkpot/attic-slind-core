@@ -1,0 +1,168 @@
+#!/bin/sh
+
+CONFIG_FILE=~/.slind-config
+if [ ! -f $CONFIG_FILE ]; then
+	echo "Cannot read config file, exiting."
+	exit 1
+else
+	. $CONFIG_FILE
+fi
+
+CHROOTCMD="$ROOTCMD chroot $TARGET su - build -c"
+HOSTARCH=`dpkg --print-architecture`
+GNUARCH=`dpkg-architecture -a$ARCH -qDEB_HOST_GNU_TYPE 2>/dev/null` || true
+
+# list of basic target packages
+BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg miniperl apt"
+# list of host packages that we need to install before
+# we can even run package builder
+PKGLIST="dpkg-cross northern-cross g++-4.1-$GNUARCH i386-toolchain debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
+
+# hackaround for the case of non-existing locales
+export LC_ALL=C
+
+# some shells don't export UID variable
+if [ -z "$UID" ]; then
+       UID=`id -u`
+fi
+
+# 1. bootstrap building environment
+dev_bootstrap() {
+	echo "=== dev_bootstrap ==="
+	$ROOTCMD debootstrap --variant=buildd $DEBSUITE $TARGET $MIRROR
+	if [ "$?" != "0" ]; then
+		echo "Failed to bootstrap $DEBSUITE from $MIRROR to $TARGET"
+		exit 1
+	fi
+}
+
+# 2. copy tools inside
+copy_tools() {
+	echo "=== copy_tools ==="
+	if [ "${TOOLSDIR#http*:}" = "$TOOLSDIR" ]; then
+	        echo "Copying $TOOLSDIR to $TARGET/tools"
+		$ROOTCMD mkdir -p $TARGET/tools
+		( cd $TOOLSDIR; tar -c --exclude CVS * ) | \
+			$ROOTCMD tar xf - -C $TARGET/tools
+	        # for the chroot environment, the tools are now in /tools
+	        TOOLSDIR="file:///tools"
+	else
+	        echo "Tools are on HTTP server. No local copying needed."
+	fi
+	if [ "${SLINDSRC#http*:}" = "$SLINDSRC" ]; then
+	        echo "Copying $SLINDSRC to $TARGET/slind"
+		$ROOTCMD mkdir -p $TARGET/slind
+		( cd $SLINDSRC; tar -c --exclude CVS * ) | \
+			$ROOTCMD tar xf - -C $TARGET/slind
+	        # for the chroot environment...
+	        SLINDSRC="file:///slind"
+	else
+		$ROOTCMD mkdir -p $TARGET/slind
+		$ROOTCMD wget $SLINDSRC/$SUITE -O $TARGET/slind/$SUITE
+
+	        echo "Slind repository is on HTTP server. No local copying needed."
+	fi
+	
+}
+
+# 3. configure apt
+configure_apt() {
+	echo "=== configure_apt ==="
+	echo "deb $MIRROR $DEBSUITE main" > sources.list
+	echo "deb $TOOLSDIR ./" >> sources.list
+	echo "deb-src $SLINDSRC $SUITE main" >> sources.list
+
+	$ROOTCMD mv sources.list $TARGET/etc/apt/sources.list
+	$ROOTCMD chroot $TARGET apt-get update
+}
+
+# 4. install necessary packages
+dev_install() {
+	echo "=== dev_install ==="
+	$ROOTCMD chroot $TARGET apt-get install --yes --force-yes $PKGLIST
+	$ROOTCMD chroot $TARGET apt-get clean
+	#$ROOTCMD cp -a $SLINDSRC $TARGET/slind
+}
+
+# 4.5. create a user for building
+add_user() {
+	echo "=== add_user ==="
+	if ! grep -q build $TARGET/etc/passwd; then
+		$ROOTCMD chroot $TARGET /usr/sbin/adduser --home /build --uid $UID --disabled-password --disabled-login --gecos 'Build user' build
+		# 4.6. configure sudo
+		$ROOTCMD chroot $TARGET su - -c "echo 'build ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+	fi
+}
+
+# 5. build everything
+build_for_host() {
+	echo "=== build_for_host ==="
+	for pkg in $BASEPKGLIST; do
+		$CHROOTCMD "nc build $pkg --arch $HOSTARCH --path /slind"
+	done
+}
+
+build_for_target() {
+	echo "=== build_for_target ==="
+	$CHROOTCMD "nc world --arch $ARCH --path /slind"
+}
+
+update_lists() {
+	$CHROOTCMD "nc update --arch $HOSTARCH --path /slind"
+	$CHROOTCMD "nc update --arch $ARCH --path /slind"
+}
+
+# 6. bootstrap i386 rootfs
+bootstrap_host() {
+	echo "=== bootstrap_host ==="
+	[ -f $TARGET/slind/$SUITE ] || $ROOTCMD cp ./$SUITE $TARGET/slind
+	$ROOTCMD mkdir -p $TARGET/rootfs-$HOSTARCH
+	$ROOTCMD chroot $TARGET debootstrap $SUITE /rootfs-$HOSTARCH $SLINDSRC /slind/$SUITE
+	$ROOTCMD chmod u+s $TARGET/rootfs-$HOSTARCH/sbin/ldconfig
+}
+
+# 7. bootstrap $ARCH rootfs
+bootstrap_target() {
+	echo "=== bootstrap_target ==="
+	cp fstab inittab $TARGET/build
+	$ROOTCMD mkdir -p $TARGET/rootfs-$ARCH
+	$ROOTCMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $TARGET/etc/cross-shell.conf
+	$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLINDSRC," $TARGET/etc/cross-shell.conf
+	$ROOTCMD chown -R $UID:$UID $TARGET/rootfs-$ARCH
+	$CHROOTCMD "cross-shell bs"
+	$CHROOTCMD "cross-shell apt $TARGET_APT"
+	$CHROOTCMD "cross-shell pack"
+}
+
+case "$1" in
+	all)
+		dev_bootstrap
+		copy_tools
+		configure_apt
+		dev_install
+		add_user
+		build_for_host
+		build_for_target
+		update_lists
+		bootstrap_host
+		bootstrap_target
+		;;
+	*bootstrap*)
+		update_lists
+		bootstrap_host
+		bootstrap_target
+		;;
+	*setup*)
+		dev_bootstrap
+		copy_tools
+		configure_apt
+		dev_install
+		add_user
+		;;
+	*build*)
+		build_for_host
+		build_for_target
+		update_lists
+		;;
+esac
+

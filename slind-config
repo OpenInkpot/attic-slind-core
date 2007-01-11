@@ -1,0 +1,14 @@
+# slind autobuilder configuration file
+######################################
+
+# (debian name of) architecture we're building for
+ARCH=arm
+DEBSUITE=etch
+MIRROR=http://tux/pub/debian
+ROOTCMD=sudo
+TARGET=dev-chroot
+TOOLSDIR=./repo
+SLINDSRC=../repo
+SUITE=clydesdale
+TARGET_APT="libglib2.0-0 libxml2 mtd-tools syslogd joe tcpdump openssh-client openssh-server udhcpd strace cron logrotate sigmasys sigmasys-util trace-linux2.6 oxbus-linux2.6 sdn-linux2.6 safedlink-linux2.6 pstty-linux2.6"
+

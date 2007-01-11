@@ -1,0 +1,46 @@
+#!/usr/bin/make -f
+
+pkg := slind-core
+dir := debian/$(pkg)
+
+configure:
+	dh_testdir
+
+clean:
+	dh_testdir
+	#$(MAKE) clean
+
+	rm -f debian/substvars build-stamp debian/files
+	rm -rf $(dir)
+
+build: build-stamp configure
+build-stamp:
+	#$(MAKE)
+	touch $@
+
+install: build
+	dh_testdir
+	dh_testroot
+
+	dh_clean -k
+	dh_installdirs
+
+binary-arch: install
+	dh_testdir
+	dh_testroot
+
+	mkdir -p $(dir)/usr/bin
+	mkdir -p $(dir)/etc/slind
+	cp slindctl $(dir)/usr/bin
+	cp slind-config $(dir)/etc/slind
+	#$(MAKE) install DESTDIR=$(dir)
+	dh_installchangelogs
+	
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+	
+binary: binary-arch
+
+.PHONY: configure clean build install binary-arch binary

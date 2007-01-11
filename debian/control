@@ -1,0 +1,13 @@
+Source: slind-core
+Section: devel
+Maintainer: Alexander Shishkin <alexander.shishkin@siemens.com>
+Build-Depends: debhelper (>> 2.0.0)
+Standards-Version: 3.6.2
+
+Package: slind-core
+Priority: optional
+Architecture: all
+Depends: debootstrap, sudo
+Description: SLIND cross-development environment tools
+ This is SLIND. The rest is TODO.
+

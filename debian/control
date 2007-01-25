@@ -1,6 +1,6 @@
 Source: slind-core
 Section: devel
-Maintainer: Alexander Shishkin <alexander.shishkin@siemens.com>
+Maintainer: Alexander Shishkin <virtuoso@slind.org>
 Build-Depends: debhelper (>> 2.0.0)
 Standards-Version: 3.6.2
 

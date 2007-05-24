@@ -11,3 +11,10 @@ Depends: debootstrap, sudo
 Description: SLIND cross-development environment tools
  This is SLIND. The rest is TODO.
 
+Package: slind-maintainer-core
+Priority: optional
+Architecture: all
+Depends: slind-core, grasp
+Description: SLIND maintainance helpers
+ This is SLIND. The rest is TODO.
+

@@ -1,3 +1,10 @@
+slind-core (0.2) unstable; urgency=low
+
+  * Added slind-maintainer-core package with all the handy-dandy tools for
+  everyday slind maintainance.
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Wed, 23 May 2007 14:28:33 +0400
+
 slind-core (0.1) unstable; urgency=low
 
   * Initial release.

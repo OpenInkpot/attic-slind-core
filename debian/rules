@@ -1,7 +1,9 @@
 #!/usr/bin/make -f
 
-pkg := slind-core
-dir := debian/$(pkg)
+pkgs := slind-core slind-maintainer-core
+dir_slind-core := debian/slind-core
+dir_slind-maintainer-core := debian/slind-maintainer-core
+dirs := $(dir_slind-core) $(dir_slind-maintainer-core)
 
 configure:
 	dh_testdir
@@ -11,7 +13,7 @@ clean:
 	#$(MAKE) clean
 
 	rm -f debian/substvars build-stamp debian/files
-	rm -rf $(dir)
+	rm -rf $(dirs)
 
 build: build-stamp configure
 build-stamp:
@@ -29,11 +31,20 @@ binary-arch: install
 	dh_testdir
 	dh_testroot
 
-	mkdir -p $(dir)/usr/bin
-	mkdir -p $(dir)/etc/slind
-	cp slindctl $(dir)/usr/bin
-	cp slind-config $(dir)/etc/slind
-	#$(MAKE) install DESTDIR=$(dir)
+	# slind-core
+	mkdir -p $(dir_slind-core)/usr/bin
+	mkdir -p $(dir_slind-core)/etc/slind
+	cp slindctl $(dir_slind-core)/usr/bin
+	cp slind-config $(dir_slind-core)/etc/slind
+
+	# slind-maintainer-core
+	mkdir -p $(dir_slind-maintainer-core)/usr/bin
+	mkdir -p $(dir_slind-maintainer-core)/etc
+	mkdir -p $(dir_slind-maintainer-core)/var/lib/slind-maint
+	cp poolcare $(dir_slind-maintainer-core)/usr/bin
+	cp slindjob $(dir_slind-maintainer-core)/usr/bin
+	cp slindjob-config $(dir_slind-maintainer-core)/etc
+	cp *.pkglist $(dir_slind-maintainer-core)/var/lib/slind-maint
 	dh_installchangelogs
 	
 	dh_installdeb

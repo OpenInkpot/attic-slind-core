@@ -6,6 +6,7 @@ gcc-4.1
 gdb
 grasp
 dpkg
+dpkg-pool
 slind-core
 slind-utils
 toolchain-package

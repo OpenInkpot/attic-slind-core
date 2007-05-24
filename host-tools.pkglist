@@ -1,0 +1,14 @@
+binutils
+linux-kernel-headers
+uclibc
+glibc
+gcc-4.1
+gdb
+grasp
+dpkg
+slind-core
+slind-utils
+toolchain-package
+cross-shell
+fakechroot-cross
+northern-cross

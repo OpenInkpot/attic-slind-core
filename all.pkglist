@@ -1,0 +1,11 @@
+busybox
+zlib
+ncurses
+base-passwd
+udhcp
+base-files
+netbase
+freetype
+sysklogd
+sysvinit
+ifupdown

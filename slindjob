@@ -1,0 +1,32 @@
+#!/bin/sh
+
+SLINDJOB_CONFIG=/etc/slindjob-config
+LOGFILE="/tmp/slindjob-`date +%C%y%m%d_%H%M`"
+if [ -f "$SLINDJOB_CONFIG" ]; then
+	. "$SLINDJOB_CONFIG"
+else
+	echo "Failed to open config file $SLINDJOB_CONFIG"
+	exit 1
+fi
+
+# Update all local packages' repos and build source packages
+update_all()
+{
+	cat `find $PKGLIST_DIR -type f -name '*.pkglist'` | while read pkg; do
+		echo "============================================="
+		echo "# Updating local repository for $pkg"
+		echo "============================================="
+		grasp update "$pkg" 2>&1 | tee -a "$LOGFILE"
+		echo
+
+		echo "============================================="
+		echo "# Building source package for $pkg"
+		echo "============================================="
+		grasp build "$pkg" 2>&1 | tee -a "$LOGFILE"
+		echo
+	done
+}
+
+: > "$LOGFILE"
+update_all
+

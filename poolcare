@@ -1,0 +1,136 @@
+#!/bin/sh
+
+SUITES="clydesdale percheron attic"
+DEVSUITE="clydesdale"
+COMPONENTS="host-tools core"
+REPODIR="/opt/slind/grasp-out"
+DISTSDIR="$REPODIR/dists"
+POOLDIR="$REPODIR/pool"
+IDXDIR="$REPODIR/indices"
+OVERRIDES_DB="$IDXDIR/overrides.db"
+SQLCMD="sqlite3 $OVERRIDES_DB"
+
+mkoverrides() {
+	$SQLCMD "create table overrides (
+		pkgname varchar NOT NULL,
+		version varchar NOT NULL,
+		suite char(24),
+		component varchar NOT NULL);"
+	$SQLCMD "create table arch_overrides (
+		pkgname varchar NOT NULL,
+		version varchar NOT NULL,
+		arch NOT NULL,
+		suite char(24),
+		component varchar NOT NULL);"
+}
+
+prologue() {
+	if [ ! -f "$OVERRIDES_DB" ]; then
+		mkdir -p "$IDXDIR"
+		touch "$OVERRIDES_DB"
+		mkoverrides
+	fi
+
+	for _s in $SUITES; do
+		for _c in $COMPONENTS; do
+			if [ ! -d "$DISTSDIR/$_s/$_c/source" ]; then
+				mkdir -p "$DISTSDIR/$_s/$_c/source"
+				: > "$DISTSDIR/$_s/$_c/source/Sources"
+			fi
+		done
+	done
+}
+
+scan_just_one() {
+	local _suite="$1"
+	local _comp="$2"
+
+	find "$POOLDIR" -type f -name '*.dsc' | while read _dscfile; do
+		_dscfilename="`echo -n $_dscfile | sed -e 's,^.*/,,'`"
+		_dscmd5="`md5sum $_dscfile | cut -d' ' -f1`"
+		_dscsz="`stat -c %s $_dscfile`"
+		_dscdir="`echo -n $_dscfile | sed -e 's,/[^/]*$,,' -e 's,^.*pool/,pool/,'`"
+		_pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
+		_pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
+
+		_overrid=`$SQLCMD "select suite from overrides
+				    where pkgname='$_pkgname'
+				      and version='$_pkgver'"`
+		if [ -z "$_overrid" ]; then
+			_overrid=`$SQLCMD "select version from overrides
+					    where pkgname='$_pkgname'
+					      and suite='$DEVSUITE'"`
+			if [ -n "$_overrid" ]; then
+				echo "Warning: there is another version of $_pkgname ($_overrid) in $DEVSUITE."
+				dpkg --compare-versions "$_pkgver" lt "$_overrid"
+				if [ "$?" != "0" ]; then
+					echo "...but $_pkgver is newer, so moving $_overrid to attic"
+					_comp=`$SQLCMD "select component from overrides
+							 where pkgname='$_pkgname'"`
+					$SQLCMD "update overrides
+						    set version='$_pkgver'
+						  where pkgname='$_pkgname'
+						    and suite='$DEVSUITE';
+						 insert into overrides
+						 values ('$_pkgname', '$_overrid',
+						 	 'attic', '$_comp')"
+					_suite="$DEVSUITE"
+				else 
+					_suite="attic"
+				fi
+			else
+				echo "# adding $_pkgname=$_pkgver to overrides"
+				$SQLCMD "insert into overrides values('$_pkgname', '$_pkgver', '$DEVSUITE', 'host-tools')"
+				_suite="$DEVSUITE"
+			fi
+		else
+			echo "# $_pkgname=$_pkgver already in overrides"
+			_suite="$_overrid"
+		fi
+		_comp=`$SQLCMD "select component from overrides
+				 where suite='$_suite'
+				   and pkgname='$_pkgname'"`
+		if [ -z "$_comp" ]; then
+			_comp="host-tools"
+		fi
+
+		# produce a 'Sources' entry from .dsc
+		gawk                               \
+			-v dscmd5="$_dscmd5"       \
+			-v dscsz="$_dscsz"         \
+			-v dscfile="$_dscfilename" \
+			-v dscdir="$_dscdir"       \
+		'END { printf "\n"; }
+		/^Files: / {
+			printf "Directory: %s\n", dscdir;
+			printf "Files:\n %s %s %s\n", dscmd5, dscsz, dscfile;
+			next;
+		}
+		// {
+			if ($1 == "Source:")
+				printf "Package: %s\n", $2;
+			else
+				print $0;
+		}'     \
+			< "$_dscfile" \
+			>> "$DISTSDIR/$_suite/$_comp/source/Sources"
+
+		gzip -c9                                              \
+			< "$DISTSDIR/$_suite/$_comp/source/Sources"   \
+			> "$DISTSDIR/$_suite/$_comp/source/Sources.gz"
+	done
+}
+
+scan_all() {
+	pushd $REPODIR > /dev/null
+	#for _s in $SUITES; do
+	#	for _c in $COMPONENTS; do
+	scan_just_one $_s host-tools
+	#	done
+	#done
+	popd > /dev/null
+}
+
+prologue
+scan_all
+

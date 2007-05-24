@@ -14,7 +14,7 @@ Description: SLIND cross-development environment tools
 Package: slind-maintainer-core
 Priority: optional
 Architecture: all
-Depends: slind-core, grasp
+Depends: slind-core, grasp, sqlite3
 Description: SLIND maintainance helpers
  This is SLIND. The rest is TODO.
 

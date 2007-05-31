@@ -1,10 +1,11 @@
 Source: slind-core
-Section: devel
+Section: host-tools
 Maintainer: Alexander Shishkin <virtuoso@slind.org>
 Build-Depends: debhelper (>> 2.0.0)
 Standards-Version: 3.6.2
 
 Package: slind-core
+Section: host-tools
 Priority: optional
 Architecture: all
 Depends: debootstrap, sudo
@@ -12,6 +13,7 @@ Description: SLIND cross-development environment tools
  This is SLIND. The rest is TODO.
 
 Package: slind-maintainer-core
+Section: host-tools
 Priority: optional
 Architecture: all
 Depends: slind-core, grasp, sqlite3

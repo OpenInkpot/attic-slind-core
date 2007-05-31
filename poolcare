@@ -2,7 +2,8 @@
 
 SUITES="clydesdale percheron attic"
 DEVSUITE="clydesdale"
-COMPONENTS="host-tools core"
+COMPONENTS="host-tools core gui security debug"
+ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4"
 REPODIR="/opt/slind/grasp-out"
 DISTSDIR="$REPODIR/dists"
 POOLDIR="$REPODIR/pool"
@@ -10,6 +11,7 @@ IDXDIR="$REPODIR/indices"
 OVERRIDES_DB="$IDXDIR/overrides.db"
 SQLCMD="sqlite3 $OVERRIDES_DB"
 
+# initialize overrides database
 mkoverrides() {
 	$SQLCMD "create table overrides (
 		pkgname varchar NOT NULL,
@@ -24,6 +26,7 @@ mkoverrides() {
 		component varchar NOT NULL);"
 }
 
+# prepare for scanning
 prologue() {
 	if [ ! -f "$OVERRIDES_DB" ]; then
 		mkdir -p "$IDXDIR"
@@ -35,102 +38,272 @@ prologue() {
 		for _c in $COMPONENTS; do
 			if [ ! -d "$DISTSDIR/$_s/$_c/source" ]; then
 				mkdir -p "$DISTSDIR/$_s/$_c/source"
-				: > "$DISTSDIR/$_s/$_c/source/Sources"
 			fi
+			: > "$DISTSDIR/$_s/$_c/source/Sources"
+			gzip -c9 < "$DISTSDIR/$_s/$_c/source/Sources" \
+				> "$DISTSDIR/$_s/$_c/source/Sources.gz"
+
+			for _a in $ARCHES; do
+				if [ ! -d "$DISTSDIR/$_s/$_c/binary-$_a" ]; then
+					mkdir -p "$DISTSDIR/$_s/$_c/binary-$_a"
+				fi
+				: > "$DISTSDIR/$_s/$_c/binary-$_a/Packages"
+				gzip -c9 \
+					< "$DISTSDIR/$_s/$_c/binary-$_a/Packages"\
+					> "$DISTSDIR/$_s/$_c/binary-$_a/Packages.gz"
+			done
 		done
 	done
 }
 
-scan_just_one() {
-	local _suite="$1"
-	local _comp="$2"
+# throw a message to stderr
+# $1 -- the message
+# $2 -- optional echo flags (-n, -e, whatever)
+yell() {
+	echo $2 "$1" >&2
+}
 
-	find "$POOLDIR" -type f -name '*.dsc' | while read _dscfile; do
-		_dscfilename="`echo -n $_dscfile | sed -e 's,^.*/,,'`"
-		_dscmd5="`md5sum $_dscfile | cut -d' ' -f1`"
-		_dscsz="`stat -c %s $_dscfile`"
-		_dscdir="`echo -n $_dscfile | sed -e 's,/[^/]*$,,' -e 's,^.*pool/,pool/,'`"
-		_pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
-		_pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
+# match source package against overrides db
+# $1 -- source package name
+# $2 -- source package version
+# returns 'suite/component' path component
+override_poolpath() {
+	local _pkgname="$1"
+	local _pkgver="$2"
 
-		_overrid=`$SQLCMD "select suite from overrides
+	# 1. Check if this package/version record exists in db
+	_overrid=`$SQLCMD "select suite from overrides
+			    where pkgname='$_pkgname'
+			      and version='$_pkgver'"`
+
+	if [ -z "$_overrid" ]; then
+		# -- it doesn't
+		# 2.A. Check if some other version of the package is in
+		# the current $DEVSUITE in db.
+		_overrid=`$SQLCMD "select version from overrides
 				    where pkgname='$_pkgname'
-				      and version='$_pkgver'"`
-		if [ -z "$_overrid" ]; then
-			_overrid=`$SQLCMD "select version from overrides
-					    where pkgname='$_pkgname'
-					      and suite='$DEVSUITE'"`
-			if [ -n "$_overrid" ]; then
-				echo "Warning: there is another version of $_pkgname ($_overrid) in $DEVSUITE."
-				dpkg --compare-versions "$_pkgver" lt "$_overrid"
-				if [ "$?" != "0" ]; then
-					echo "...but $_pkgver is newer, so moving $_overrid to attic"
-					_comp=`$SQLCMD "select component from overrides
-							 where pkgname='$_pkgname'"`
-					$SQLCMD "update overrides
-						    set version='$_pkgver'
-						  where pkgname='$_pkgname'
-						    and suite='$DEVSUITE';
-						 insert into overrides
-						 values ('$_pkgname', '$_overrid',
-						 	 'attic', '$_comp')"
-					_suite="$DEVSUITE"
-				else 
-					_suite="attic"
-				fi
-			else
-				echo "# adding $_pkgname=$_pkgver to overrides"
-				$SQLCMD "insert into overrides values('$_pkgname', '$_pkgver', '$DEVSUITE', 'host-tools')"
+				      and suite='$DEVSUITE'"`
+		if [ -n "$_overrid" ]; then
+			# -- it is
+			# 3.A.A. Compare our version with the one in the db
+			yell "Warning: there is another version of " -n
+			yell "$_pkgname ($_overrid) in $DEVSUITE."
+
+			dpkg --compare-versions "$_pkgver" lt "$_overrid"
+			if [ "$?" != "0" ]; then
+				# -- our version is newer
+				# 4.A.A.A. Put our version to $DEVSUITE and
+				# move the older one to attic.
+				yell "...but $_pkgver is newer, so moving " -n
+				yell "$_overrid to attic"
+
+				_comp=`$SQLCMD "select component from overrides
+						 where pkgname='$_pkgname'"`
+				$SQLCMD "update overrides
+					    set version='$_pkgver'
+					  where pkgname='$_pkgname'
+					    and suite='$DEVSUITE';
+					 insert into overrides
+					 values ('$_pkgname', '$_overrid',
+						 'attic', '$_comp')"
+				# That is to say, our package/version is in
+				# $DEVSUITE.
 				_suite="$DEVSUITE"
+			else 
+				# -- our version is older than the one in db
+				# 4.A.A.B. Put ourselves to 'attic' right away.
+				_suite="attic"
 			fi
 		else
-			echo "# $_pkgname=$_pkgver already in overrides"
-			_suite="$_overrid"
+			# -- it is not: the package is new
+			# 3.A.B. Add package/version to $DEVSUITE.
+			yell "# adding $_pkgname=$_pkgver to overrides"
+			$SQLCMD "insert into overrides values('$_pkgname', '$_pkgver', '$DEVSUITE', 'host-tools')"
+			_suite="$DEVSUITE"
 		fi
-		_comp=`$SQLCMD "select component from overrides
-				 where suite='$_suite'
-				   and pkgname='$_pkgname'"`
-		if [ -z "$_comp" ]; then
-			_comp="host-tools"
-		fi
+	else
+		# -- it is
+		# 2.B. Do nothing.
+		yell "# $_pkgname=$_pkgver already in overrides"
+		_suite="$_overrid"
+	fi
 
-		# produce a 'Sources' entry from .dsc
-		gawk                               \
-			-v dscmd5="$_dscmd5"       \
-			-v dscsz="$_dscsz"         \
-			-v dscfile="$_dscfilename" \
-			-v dscdir="$_dscdir"       \
-		'END { printf "\n"; }
-		/^Files: / {
-			printf "Directory: %s\n", dscdir;
-			printf "Files:\n %s %s %s\n", dscmd5, dscsz, dscfile;
-			next;
-		}
-		// {
-			if ($1 == "Source:")
-				printf "Package: %s\n", $2;
-			else
-				print $0;
-		}'     \
-			< "$_dscfile" \
-			>> "$DISTSDIR/$_suite/$_comp/source/Sources"
+	# Find the component
+	_comp=`$SQLCMD "select component from overrides
+			 where suite='$_suite'
+			   and pkgname='$_pkgname'"`
+	if [ -z "$_comp" ]; then
+		_comp="host-tools"
+	fi
 
-		gzip -c9                                              \
-			< "$DISTSDIR/$_suite/$_comp/source/Sources"   \
-			> "$DISTSDIR/$_suite/$_comp/source/Sources.gz"
+	echo "$_suite/$_comp"
+}
+
+# Produce a 'Sources' entry from .dsc.
+# $1 -- path to .dsc file
+# $2 -- path to Sources file
+dsc_to_Sources() {
+	local _dscfile="$1"
+	local _sourcespath="$2"
+	_dscfilename="`echo -n $_dscfile | sed -e 's,^.*/,,'`"
+	_dscmd5="`md5sum $_dscfile | cut -d' ' -f1`"
+	_dscsz="`stat -c %s $_dscfile`"
+	_dscdir="`echo -n $_dscfile | sed -e 's,/[^/]*$,,' -e 's,^.*pool/,pool/,'`"
+
+	gawk                               \
+		-v dscmd5="$_dscmd5"       \
+		-v dscsz="$_dscsz"         \
+		-v dscfile="$_dscfilename" \
+		-v dscdir="$_dscdir"       \
+	'END { printf "\n"; }
+	/^Files: / {
+		printf "Directory: %s\n", dscdir;
+		printf "Files:\n %s %s %s\n", dscmd5, dscsz, dscfile;
+		next;
+	}
+	// {
+		if ($1 == "Source:")
+			printf "Package: %s\n", $2;
+		else
+			print $0;
+	}'     \
+		< "$_dscfile" \
+		>> "$_sourcespath/Sources"
+
+	gzip -c9                                              \
+		< "$_sourcespath/Sources"   \
+		> "$_sourcespath/Sources.gz"
+}
+
+# Process a .dsc file.
+# $1 -- path to .dsc file
+# This is a do-it-all function for one source package.
+scan_just_one_dsc() {
+	local _dscfile="$1"
+
+	_pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
+	_pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
+
+	# check with overrides db
+	_suite_comp="`override_poolpath $_pkgname $_pkgver`"
+
+	# write a source entry to Sources file
+	dsc_to_Sources "$_dscfile" "$DISTSDIR/$_suite_comp/source"
+}
+
+scan_all_dsc() {
+	pushd $REPODIR > /dev/null
+
+	find "$POOLDIR" -type f -name '*.dsc' | while read _dscfile; do
+		scan_just_one_dsc "$_dscfile"
+	done
+
+	popd > /dev/null
+}
+
+get_deb_header() {
+	local _debfile="$1"
+	local _hdr="$2"
+
+	_value=`ar p $_debfile control.tar.gz | tar zxO ./control | \
+		grep "^${_hdr}: " | cut -d' ' -f2`
+	echo "$_value"
+}
+
+get_deb_distpath() {
+	local _debfile="$1"
+
+	_source="`get_deb_header $_debfile Source`"
+	if [ -z "$_source" ]; then
+		_tmp="`dirname $_debfile`"
+		_source="`basename $_tmp`"
+		yell "WARNING: package $_debfile lacks a " -n
+		yell "'Source:' header, assuming '$_source'"
+	fi
+
+	_comp="`get_deb_header $_debfile Section`"
+	if [ -z "$_comp" ]; then
+		yell "WARNING: package $_debfile lacks a " -n
+		yell "'Section:' header, assuming 'core'"
+		_comp=core
+	fi
+
+	_version="`get_deb_header $_debfile Version`"
+	_arch="`get_deb_header $_debfile Architecture`"
+	_suite=`$SQLCMD "select suite from overrides
+			  where pkgname='$_source'
+			    and version='$_version'"`
+	if [ -z "$_suite" ]; then
+		yell "WARNING: cannot find $_source=$_version in" -n
+		yell "overrides table, assuming $DEVSUITE"
+		_suite="$DEVSUITE"
+	fi
+	#yell "#### $_debfile: [$_comp] [$_suite] [$_source] [$_version]"
+
+	if [ "$_arch" = "all" ]; then
+		for _arch in $ARCHES; do
+			echo "$_suite/$_comp/binary-$_arch"
+		done
+	else
+		echo "$_suite/$_comp/binary-$_arch"
+	fi
+}
+
+deb_to_Packages() {
+	local _debfile="$1"
+	local _packagespath="$2"
+	_debfilename="`echo -n $_debfile | sed -e 's,^.*/,,'`"
+	_debmd5="`md5sum $_debfile | cut -d' ' -f1`"
+	_debsz="`stat -c %s $_debfile`"
+	_debdir="`echo -n $_debfile | sed -e 's,/[^/]*$,,' -e 's,^.*pool/,pool/,'`"
+
+	ar p $_debfile control.tar.gz | tar zxO ./control | \
+	gawk                               \
+		-v debmd5="$_debmd5"       \
+		-v debsz="$_debsz"         \
+		-v debfile="$_debfilename" \
+		-v debdir="$_debdir"       \
+	'END { printf "\n"; }
+	/^Description: / {
+		printf "Filename: %s/%s\n", debdir, debfile;
+		printf "Size: %s\n", debsz;
+		printf "MD5sum: %s\n", debmd5;
+		printf "%s\n", $0;
+		next;
+	}
+	// {
+		print $0;
+	}'     \
+		>> "$_packagespath/Packages"
+
+	gzip -c9                              \
+		< "$_packagespath/Packages"   \
+		> "$_packagespath/Packages.gz"
+}
+
+scan_just_one_deb() {
+	local _debfile="$1"
+	local _paths="`get_deb_distpath $_debfile`"
+
+	for _path in $_paths; do
+		_pkgspath="dists/$_path"
+		_pkgsfile="$_pkgspath/Packages"
+		echo ">>> $_pkgsfile"
+		deb_to_Packages "$_debfile" "$_pkgspath"
 	done
 }
 
-scan_all() {
+scan_all_deb() {
 	pushd $REPODIR > /dev/null
-	#for _s in $SUITES; do
-	#	for _c in $COMPONENTS; do
-	scan_just_one $_s host-tools
-	#	done
-	#done
+
+	find "$POOLDIR" -type f -name "*.deb" | while read _debfile; do
+		scan_just_one_deb "$_debfile"
+	done
+
 	popd > /dev/null
 }
 
 prologue
-scan_all
+scan_all_dsc
+scan_all_deb
 

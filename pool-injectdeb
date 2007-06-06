@@ -29,6 +29,9 @@ if [ -z "$DEBNAME" ]; then
 fi
 
 DEBPATH="`get_deb_poolpath $DEBNAME`"
+
+DEBPATH="$POOL_DIR/$DEBPATH"
 echo "Moving to $DEBPATH"
-mv $DEBNAME $DEBPATH
+mkdir -p "$DEBPATH"
+mv "$DEBNAME" "$DEBPATH"
 

@@ -1,2 +1,3 @@
 PKGLIST_DIR=/var/lib/slind-maint
+POOL_DIR=/opt/slind/grasp-out
 

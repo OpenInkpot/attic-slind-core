@@ -154,6 +154,10 @@ get_deb_header() {
 
 	_value=`ar p $_debfile control.tar.gz | tar zxO ./control | \
 		grep "^${_hdr}: " | cut -d' ' -f2`
+	if [ "$_hdr" = "Version" ]; then
+		_value=`echo $_value | sed -e 's,^[^:]*:,,'`
+	fi
+
 	echo "$_value"
 }
 

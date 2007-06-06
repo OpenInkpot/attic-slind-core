@@ -1,0 +1,26 @@
+#!/bin/sh
+
+SUITES="clydesdale percheron attic"
+DEVSUITE="clydesdale"
+COMPONENTS="host-tools core gui security debug"
+ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4"
+REPODIR="/opt/slind/grasp-out"
+
+LIBRARY=/usr/lib/slind-maintainer-core/libpoolcare.sh
+if [ -f "$LIBRARY" ]; then
+	. $LIBRARY
+else
+	echo "Error: can't load library $LIBRARY"
+	exit 1
+fi
+
+DEBNAME="$1"
+if [ -z "$DEBNAME" ]; then
+	echo "Please specify a path to .deb file you want to inject"
+	exit 1
+fi
+
+DEBPATH="`get_deb_poolpath $DEBNAME`"
+echo "Moving to $DEBPATH"
+mv $DEBNAME $DEBPATH
+

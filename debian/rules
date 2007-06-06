@@ -41,10 +41,14 @@ binary-arch: install
 	mkdir -p $(dir_slind-maintainer-core)/usr/bin
 	mkdir -p $(dir_slind-maintainer-core)/etc
 	mkdir -p $(dir_slind-maintainer-core)/var/lib/slind-maint
+	mkdir -p $(dir_slind-maintainer-core)/usr/lib/slind-maintainer-core
 	cp poolcare $(dir_slind-maintainer-core)/usr/bin
+	cp pool-injectdeb $(dir_slind-maintainer-core)/usr/bin
+	cp libpoolcare.sh $(dir_slind-maintainer-core)/usr/lib/slind-maintainer-core
 	cp slindjob $(dir_slind-maintainer-core)/usr/bin
 	cp slindjob-config $(dir_slind-maintainer-core)/etc
 	cp *.pkglist $(dir_slind-maintainer-core)/var/lib/slind-maint
+	chmod 755 $(dir_slind-maintainer-core)/usr/bin/*
 	dh_installchangelogs
 	
 	dh_installdeb

@@ -4,7 +4,15 @@ SUITES="clydesdale percheron attic"
 DEVSUITE="clydesdale"
 COMPONENTS="host-tools core gui security debug"
 ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4"
-REPODIR="/opt/slind/grasp-out"
+
+SLINDJOB_CONFIG=/etc/slindjob-config
+if [ -f $SLINDJOB_CONFIG ]; then
+	. /etc/slindjob-config
+else
+	echo "Can't open $SLINDJOB_CONFIG"
+	exit 1
+fi
+REPODIR="$POOL_DIR"
 
 LIBRARY=/usr/lib/slind-maintainer-core/libpoolcare.sh
 if [ -f "$LIBRARY" ]; then

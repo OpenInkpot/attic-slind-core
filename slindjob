@@ -29,4 +29,5 @@ update_all()
 
 : > "$LOGFILE"
 update_all
+( cd $POOL_DIR; poolcare )
 

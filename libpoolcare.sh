@@ -187,7 +187,6 @@ get_deb_distpath() {
 
 	_source="`get_deb_header $_debfile Source`"
 	if [ -z "$_source" ]; then
-		_tmp="`dirname $_debfile`"
 		_source="`get_deb_header $_debfile Package`"
 	fi
 
@@ -234,10 +233,7 @@ get_deb_poolpath() {
 
 	_source="`get_deb_header $_debfile Source`"
 	if [ -z "$_source" ]; then
-		_tmp="`dirname $_debfile`"
-		_source="`basename $_tmp`"
-		yell "WARNING: package $_debfile lacks a " -n
-		yell "'Source:' header, assuming '$_source'"
+		_source="`get_deb_header $_debfile Package`"
 	fi
 
 	_comp_overrid=`$SQLCMD "select component from overrides

@@ -33,6 +33,24 @@ yell() {
 	echo $2 "$1" >&2
 }
 
+translate_section() {
+	local _comp="$1"
+	local _pkgname="$2"
+	case "$_comp" in
+		devel|libdevel)
+			echo "host-tools"
+			yell "WARNING: section $_comp in package $_pkgname"
+			;;
+		libs)
+			echo "core"
+			yell "WARNING: section $_comp in package $_pkgname"
+			;;
+		*)
+			echo "$_comp"
+			;;
+	esac
+}
+
 # match source package against overrides db
 # $1 -- source package name
 # $2 -- source package version
@@ -170,9 +188,7 @@ get_deb_distpath() {
 	_source="`get_deb_header $_debfile Source`"
 	if [ -z "$_source" ]; then
 		_tmp="`dirname $_debfile`"
-		_source="`basename $_tmp`"
-		yell "WARNING: package $_debfile lacks a " -n
-		yell "'Source:' header, assuming '$_source'"
+		_source="`get_deb_header $_debfile Package`"
 	fi
 
 	_comp="`get_deb_header $_debfile Section`"
@@ -194,6 +210,7 @@ get_deb_distpath() {
 	fi
 	#yell "#### $_debfile: [$_comp] [$_suite] [$_source] [$_version]"
 
+	_comp="`translate_section $_comp $_source`"
 	if [ "$_arch" = "all" ]; then
 		for _arch in $ARCHES; do
 			echo "$_suite/$_comp/binary-$_arch"

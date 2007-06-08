@@ -34,17 +34,17 @@ binary-arch: install
 	# slind-core
 	mkdir -p $(dir_slind-core)/usr/bin
 	mkdir -p $(dir_slind-core)/etc/slind
+	mkdir -p $(dir_slind-core)/usr/lib/slind-core
 	cp slindctl $(dir_slind-core)/usr/bin
 	cp slind-config $(dir_slind-core)/etc/slind
+	cp libpoolcare.sh $(dir_slind-core)/usr/lib/slind-core
 
 	# slind-maintainer-core
 	mkdir -p $(dir_slind-maintainer-core)/usr/bin
 	mkdir -p $(dir_slind-maintainer-core)/etc
 	mkdir -p $(dir_slind-maintainer-core)/var/lib/slind-maint
-	mkdir -p $(dir_slind-maintainer-core)/usr/lib/slind-maintainer-core
 	cp poolcare $(dir_slind-maintainer-core)/usr/bin
 	cp pool-injectdeb $(dir_slind-maintainer-core)/usr/bin
-	cp libpoolcare.sh $(dir_slind-maintainer-core)/usr/lib/slind-maintainer-core
 	cp slindjob $(dir_slind-maintainer-core)/usr/bin
 	cp slindjob-config $(dir_slind-maintainer-core)/etc
 	cp *.pkglist $(dir_slind-maintainer-core)/var/lib/slind-maint

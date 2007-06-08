@@ -14,7 +14,7 @@ else
 fi
 REPODIR="$POOL_DIR"
 
-LIBRARY=/usr/lib/slind-maintainer-core/libpoolcare.sh
+LIBRARY=/usr/lib/slind-core/libpoolcare.sh
 if [ -f "$LIBRARY" ]; then
 	. $LIBRARY
 else

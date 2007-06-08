@@ -17,6 +17,8 @@ BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg minip
 # list of host packages that we need to install before
 # we can even run package builder
 PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross g++-4.1-$GNUARCH linux-kernel-headers-${ARCH}-cross i386-toolchain toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
+MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo"
+
 
 # hackaround for the case of non-existing locales
 export LC_ALL=C
@@ -34,6 +36,12 @@ dev_bootstrap() {
 		echo "Failed to bootstrap $DEBSUITE from $MIRROR to $TARGET"
 		exit 1
 	fi
+}
+
+# 1.5. configure target
+configure_target() {
+	echo "=== configure_target ==="
+	$ROOTCMD cp /etc/hosts $TARGET/etc/hosts	
 }
 
 # 2. copy tools inside
@@ -67,10 +75,18 @@ copy_tools() {
 
 # 3. configure apt
 configure_apt() {
+	local mode="$1"
+
 	echo "=== configure_apt ==="
 	echo "deb $MIRROR $DEBSUITE main" > sources.list
-	echo "deb $TOOLSDIR ./" >> sources.list
-	echo "deb-src $SLINDSRC $SUITE main" >> sources.list
+
+	if [ "$mode" = "maintainer" ]; then
+		echo "deb $HSTOOLS_MIRROR $SUITE host-tools" >> sources.list
+		echo "deb-src $HSTOOLS_MIRROR $SUITE core gui host-tools" >> sources.list
+	else
+		echo "deb $TOOLSDIR ./" >> sources.list
+		echo "deb-src $SLINDSRC $SUITE main" >> sources.list
+	fi
 
 	$ROOTCMD mv sources.list $TARGET/etc/apt/sources.list
 	$ROOTCMD chroot $TARGET apt-get update
@@ -79,7 +95,7 @@ configure_apt() {
 # 4. install necessary packages
 dev_install() {
 	echo "=== dev_install ==="
-	$ROOTCMD chroot $TARGET apt-get install --yes --force-yes $PKGLIST
+	$ROOTCMD chroot $TARGET apt-get install --yes --force-yes $@
 	$ROOTCMD chroot $TARGET apt-get clean
 	#$ROOTCMD cp -a $SLINDSRC $TARGET/slind
 }
@@ -136,9 +152,10 @@ bootstrap_target() {
 case "$1" in
 	all)
 		dev_bootstrap
+		configure_target
 		copy_tools
 		configure_apt
-		dev_install
+		dev_install $PKGLIST
 		add_user
 		build_for_host
 		build_for_target
@@ -151,11 +168,23 @@ case "$1" in
 		bootstrap_host
 		bootstrap_target
 		;;
+	*maintainer-setup*)
+		if [ -z "$HSTOOLS_MIRROR" ]; then
+			echo "ERROR: host-tools repository (HSTOOLS_MIRROR variable) is not set."
+			exit 1
+		fi
+		dev_bootstrap
+		configure_target
+		configure_apt "maintainer"
+		dev_install $MAINTAINER_PKGLIST
+		add_user
+		;;
 	*setup*)
 		dev_bootstrap
+		configure_target
 		copy_tools
 		configure_apt
-		dev_install
+		dev_install $PKGLIST
 		add_user
 		;;
 	*build*)
@@ -163,5 +192,8 @@ case "$1" in
 		build_for_target
 		update_lists
 		;;
+	*)
+		echo "Usage: `basename $0` {all|bootstrap|maintainer-setup|setup|build}"
+		exit 1
+		;;
 esac
-

@@ -12,3 +12,6 @@ SLINDSRC=../repo
 SUITE=clydesdale
 TARGET_APT="libglib2.0-0 libxml2 mtd-tools syslogd joe tcpdump openssh-client openssh-server udhcpd strace cron logrotate"
 
+# address of the remote repository which hosts host tools
+HSTOOLS_MIRROR=http://ftp.slind.org/pub/SLIND
+

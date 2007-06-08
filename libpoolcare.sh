@@ -51,6 +51,21 @@ translate_section() {
 	esac
 }
 
+# get most recent package version from overrides.db
+# $1 -- binary package name
+override_get_pkg_version() {
+	local _pkgname="$1"
+	
+	local _version=`$SQLCMD "select version from overrides
+		  where pkgname='$_pkgname' order by version desc limit 1"`
+	if [ -z "$_version" ]; then
+		echo "Can't find $_pkgname version in overrides.db" >&2
+		exit 1
+	fi
+
+	echo "$_version"
+}
+
 # match source package against overrides db
 # $1 -- source package name
 # $2 -- source package version

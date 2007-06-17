@@ -1,0 +1,175 @@
+#!/bin/bash
+set -e
+
+SCRIPT_NAME=`basename $0`
+
+test -z "$REPODIR"            && REPODIR="/tmp/repo"
+test -z "$BUILDDIR"           && BUILDDIR="/tmp/base_pkg"
+test -z "$TOOLCHAIN_BUILDDIR" && TOOLCHAIN_BUILDDIR="/tmp/tpkg"
+
+HSTOOLS_SRC_PKGLIST="dpkg dpkg-cross slind-core toolchain-package grasp"
+HSTOOLS_TO_INSTALL="dpkg dpkg-dev dselect dpkg-cross grasp slind-core slind-maintainer-core toolchain-package-maintainer"
+
+POOLCARE_LIB="/usr/lib/slind-core/libpoolcare.sh"
+CONFIG_FILE=~/.slind-config
+if [ ! -f $CONFIG_FILE ]; then
+	if [ ! -f /etc/slind/slind-config ]; then
+		echo "Error: config file $CONFIG_FILE not found, please supply it."
+		exit 1;
+	fi
+	echo "Config file $CONFIG_FILE not found, create it from default config."
+	cp /etc/slind/slind-config $CONFIG_FILE
+fi
+
+
+# hackaround for the case of non-existing locales
+export LC_ALL=C
+
+# SIGINT handler; removes cruft
+# if $NO_CLEAN is set in the environment, this function does nothing
+cleanup() {
+	if [ -z "$NO_CLEAN" -o "$1" = "force" ]; then
+		if [ -d $IDXDIR ]; then
+			rm -rf $IDXDIR
+		fi
+		if [ -d $BUILDDIR ]; then
+			rm -rf $BUILDDIR
+		fi
+		if [ -d $TOOLCHAIN_BUILDDIR ]; then
+			rm -rf $TOOLCHAIN_BUILDDIR
+		fi
+	fi
+}
+
+build_package() {
+	local pkgname="$1"
+	
+	local version="`override_get_pkg_version $pkgname $SUITE`"
+
+	cd $BUILDDIR
+	fakeroot apt-get source --compile $pkgname=$version
+	if [ "$?" != "0" ]; then
+		echo "Error: Failed to build $pkgname package"
+		exit
+	fi
+}
+
+# 1. get overrides.db
+get_overrides_db() {
+	echo "=== get overrides.db ==="
+
+	wget $HSTOOLS_MIRROR/indices/overrides.db -O $OVERRIDES_DB
+	if [ "$?" != "0" ]; then
+		echo "Error: downloading of $HSTOOLS_MIRROR/indices/overrides.db failed"
+		exit 1
+	fi
+	
+}
+
+# 2. build base host-tools packages and store them to $POOLDIR
+build_base_host_tools_packages() {
+	echo "=== building base host-tools packages ==="
+
+	local pkgname
+
+	for pkgname in $HSTOOLS_SRC_PKGLIST; do
+		build_package $pkgname
+	done
+	mv $BUILDDIR/*.deb $POOLDIR
+}
+
+# 3. install base host-tool packages from $POOLDIR
+install_base_host_tools_packages() {
+	echo "=== installing base host-tools packages ==="
+
+	local pkgname
+	local pkglist
+
+	pkglist=""
+	for pkgname in $HSTOOLS_TO_INSTALL; do
+		pkglist="$pkglist ${pkgname}_*.deb"
+	done
+	cd $POOLDIR
+	sudo dpkg -i $pkglist
+}
+
+# 4. build toolchain packages and store them to $POOLDIR
+build_toolchain() {
+	echo "=== build toolchains ==="
+
+	local ARCH=$1
+
+	if [ -d $TOOLCHAIN_BUILDDIR ]; then
+		rm -rf $TOOLCHAIN_BUILDDIR
+	fi
+
+	SRC_DIR=$TOOLCHAIN_BUILDDIR mktpkg $ARCH
+	mv $TOOLCHAIN_BUILDDIR/*.deb $POOLDIR
+}
+
+case "$1" in
+	--chroot-build)
+		if [ ! -f ~/`basename $POOLCARE_LIB` ]; then
+			echo "Error: include file ~/`basename $POOLCARE_LIB` not found, please supply it."
+			exit 1
+		fi
+
+		. ~/`basename $CONFIG_FILE`
+		. ~/`basename $POOLCARE_LIB`
+
+		# Set up ^C handler
+		trap cleanup INT
+
+		cleanup "force"
+		mkdir -p $IDXDIR
+		mkdir -p $BUILDDIR
+		mkdir -p $POOLDIR
+
+		sudo apt-get update
+
+		get_overrides_db
+		build_base_host_tools_packages
+
+		if [ -z "$2" ]; then
+			echo "Exiting, no arches was specified."
+		else
+			install_base_host_tools_packages
+
+			shift
+			for arch in $@; do
+				build_toolchain $arch
+			done
+			
+		fi
+		
+		cleanup
+		echo "Done: check the chroot dir $POOLDIR for ready packages."
+		;;
+	--build)
+		if [ ! -f $POOLCARE_LIB ]; then
+			echo "Error: Inclide file $POOLCARE_LIB not found, please supply it."
+			exit 1;
+		fi
+
+		. $CONFIG_FILE
+		CHROOTCMD="$ROOTCMD chroot $TARGET su - build -c"
+
+		#prepare environment
+		cp $0             $TARGET/build/$SCRIPT_NAME
+		cp $CONFIG_FILE   $TARGET/build/`basename $CONFIG_FILE`
+		cp $POOLCARE_LIB  $TARGET/build/`basename $POOLCARE_LIB`
+
+		echo "=== start toolchain building ==="
+		shift
+		$CHROOTCMD "NO_CLEAN=$NO_CLEAN \
+			    REPODIR=$REPODIR \
+			    BUILDDIR=$BUILDDIR \
+			    TOOLCHAIN_BUILDDIR=$TOOLCHAIN_BUILDDIR \
+			/build/$SCRIPT_NAME --chroot-build $@"
+		exit $?
+		;;
+	*)
+		echo "Usage: $SCRIPT_NAME --build ARCHES"
+		exit 1
+		;;
+esac

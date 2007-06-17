@@ -45,6 +45,7 @@ binary-arch: install
 	mkdir -p $(dir_slind-maintainer-core)/var/lib/slind-maint
 	cp poolcare $(dir_slind-maintainer-core)/usr/bin
 	cp pool-injectdeb $(dir_slind-maintainer-core)/usr/bin
+	cp slind-host-tools-bootstrap $(dir_slind-maintainer-core)/usr/bin
 	cp slindjob $(dir_slind-maintainer-core)/usr/bin
 	cp slindjob-config $(dir_slind-maintainer-core)/etc
 	cp *.pkglist $(dir_slind-maintainer-core)/var/lib/slind-maint

@@ -53,11 +53,18 @@ translate_section() {
 
 # get most recent package version from overrides.db
 # $1 -- binary package name
+# $2 -- package suite name
 override_get_pkg_version() {
 	local _pkgname="$1"
+	local _suite="$2"
+
+	local _condition ="pkgname='$_pkgname'"
+	if [ -n "$_suite" ]; then
+		_condition="$_condition and suite='$_suite'"
+	fi
 	
 	local _version=`$SQLCMD "select version from overrides
-		  where pkgname='$_pkgname' order by version desc limit 1"`
+		where $_condition order by version desc limit 1"`
 	if [ -z "$_version" ]; then
 		echo "Can't find $_pkgname version in overrides.db" >&2
 		exit 1

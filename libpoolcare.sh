@@ -58,7 +58,7 @@ override_get_pkg_version() {
 	local _pkgname="$1"
 	local _suite="$2"
 
-	local _condition ="pkgname='$_pkgname'"
+	local _condition="pkgname='$_pkgname'"
 	if [ -n "$_suite" ]; then
 		_condition="$_condition and suite='$_suite'"
 	fi

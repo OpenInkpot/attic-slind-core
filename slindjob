@@ -30,4 +30,6 @@ update_all()
 : > "$LOGFILE"
 update_all
 ( cd $POOL_DIR; poolcare )
+env REPODIR="/tmp/slindjob" slind-host-tools-bootstrap --chroot-build | tee -a "$LOGFILE"
+( cd $POOL_DIR; poolcare )
 

@@ -129,12 +129,11 @@ case "$1" in
 
 		get_overrides_db
 		build_base_host_tools_packages
+		install_base_host_tools_packages
 
 		if [ -z "$2" ]; then
 			echo "Exiting, no arches was specified."
 		else
-			install_base_host_tools_packages
-
 			shift
 			for arch in $@; do
 				build_toolchain $arch

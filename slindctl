@@ -19,6 +19,12 @@ BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg minip
 PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross g++-4.1-$GNUARCH linux-kernel-headers-${ARCH}-cross i386-toolchain toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
 MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo"
 
+# These all should be overrideable from configuration files
+# See grasp documentation for the actual meaning of those.
+[ -n "$GITBASE_URL" ]  || GITBASE_URL="http://git.slind.org/gitrepos/"
+[ -n "$GITREPOS_DIR" ] || GITREPOS_DIR="/build/grasp-repos"
+[ -n "$TARBALLS_DIR" ] || TARBALLS_DIR="/build/grasp-tarballs"
+[ -n "$GRASP_REPO" ]   || GRASP_REPO="/build/grasp-out"
 
 # hackaround for the case of non-existing locales
 export LC_ALL=C
@@ -110,6 +116,18 @@ add_user() {
 	fi
 }
 
+# 4.6. configure grasp and friends
+configure_tools() {
+	GRASP_CONFIG="$TARGET/build/.grasp"
+	: > $GRASP_CONFIG
+	echo "gitbase_url $GITBASE_URL"   >> $GRASP_CONFIG
+	echo "gitrepos_dir $GITREPOS_DIR" >> $GRASP_CONFIG
+	echo "tarballs_dir $TARBALLS_DIR" >> $GRASP_CONFIG
+	echo "reget_grasp yes"            >> $GRASP_CONFIG
+	echo "output_dir $GRASP_REPO"     >> $GRASP_CONFIG
+	echo "repo_format 2"              >> $GRASP_CONFIG
+}
+
 # 5. build everything
 build_for_host() {
 	echo "=== build_for_host ==="
@@ -178,6 +196,7 @@ case "$1" in
 		configure_apt "maintainer"
 		dev_install $MAINTAINER_PKGLIST
 		add_user
+		configure_tools
 		;;
 	*setup*)
 		dev_bootstrap
@@ -186,6 +205,7 @@ case "$1" in
 		configure_apt
 		dev_install $PKGLIST
 		add_user
+		configure_tools
 		;;
 	*build*)
 		build_for_host

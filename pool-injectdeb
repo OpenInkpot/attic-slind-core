@@ -28,10 +28,11 @@ if [ -z "$DEBNAME" ]; then
 	exit 1
 fi
 
-DEBPATH="`get_deb_poolpath $DEBNAME`"
-
-DEBPATH="$POOL_DIR/$DEBPATH"
-echo "Moving to $DEBPATH"
-mkdir -p "$DEBPATH"
-mv "$DEBNAME" "$DEBPATH"
-
+DEBPATH_LIST="`get_deb_poolpath $DEBNAME`"
+for dir in $DEBPATH_LIST; do
+	dir="$POOL_DIR/$dir"
+	echo "Moving to $dir"
+	mkdir -p "$dir"
+	cp "$DEBNAME" "$dir"
+done
+rm -f $DEBNAME

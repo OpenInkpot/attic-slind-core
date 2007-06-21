@@ -57,15 +57,24 @@ prologue() {
 # This is a do-it-all function for one source package.
 scan_just_one_dsc() {
 	local _dscfile="$1"
+	local _path_list
+	local _path
 
-	_pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
-	_pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
+	local _pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
+	local _pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
 
 	# check with overrides db
-	_suite_comp="`override_poolpath $_pkgname $_pkgver`"
+	_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
 
-	# write a source entry to Sources file
-	dsc_to_Sources "$_dscfile" "$DISTSDIR/$_suite_comp/source"
+	if [ -n "$_path_list" ]; then
+		for _path in $_path_list; do
+			# write a source entry to Sources file
+			dsc_to_Sources "$_dscfile" "$DISTSDIR/$_path/source"
+		done
+	else
+		yell "WARNING: cannot find source package $_source=$_version in" -n
+		yell "overrides table, ignore this package for now"
+	fi
 }
 
 scan_all_dsc() {

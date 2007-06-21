@@ -147,7 +147,7 @@ case "$1" in
 		;;
 	--build)
 		if [ ! -f $POOLCARE_LIB ]; then
-			echo "Error: Inclide file $POOLCARE_LIB not found, please supply it."
+			echo "Error: Include file $POOLCARE_LIB not found, please supply it."
 			exit 1;
 		fi
 

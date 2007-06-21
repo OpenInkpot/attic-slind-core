@@ -91,6 +91,7 @@ install_base_host_tools_packages() {
 	done
 	cd $POOLDIR
 	sudo dpkg -i $pkglist
+	sudo apt-get -f install --yes --force-yes
 }
 
 # 4. build toolchain packages and store them to $POOLDIR

@@ -94,7 +94,6 @@ scan_just_one_deb() {
 	for _path in $_paths; do
 		_pkgspath="dists/$_path"
 		_pkgsfile="$_pkgspath/Packages"
-		#echo ">>> $_pkgsfile"
 		deb_to_Packages "$_debfile" "$_pkgspath"
 	done
 }

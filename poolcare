@@ -72,7 +72,7 @@ scan_just_one_dsc() {
 			dsc_to_Sources "$_dscfile" "$DISTSDIR/$_path/source"
 		done
 	else
-		yell "WARNING: cannot find source package $_source=$_version in" -n
+		yell "WARNING: cannot find source package $_pkgname=$_pkgver in" -n
 		yell "overrides table, ignore this package for now"
 	fi
 }

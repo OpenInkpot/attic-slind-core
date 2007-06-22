@@ -5,9 +5,9 @@ DEVSUITE="clydesdale"
 COMPONENTS="host-tools core gui security debug"
 ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 sh4a uclibc-sh4a"
 
-SLINDJOB_CONFIG=/etc/slindjob-config
+SLINDJOB_CONFIG=~/.slindjob-config
 if [ -f $SLINDJOB_CONFIG ]; then
-	. /etc/slindjob-config
+	. $SLINDJOB_CONFIG
 else
 	echo "Can't open $SLINDJOB_CONFIG"
 	exit 1
@@ -94,7 +94,7 @@ scan_just_one_deb() {
 	for _path in $_paths; do
 		_pkgspath="dists/$_path"
 		_pkgsfile="$_pkgspath/Packages"
-		echo ">>> $_pkgsfile"
+		#echo ">>> $_pkgsfile"
 		deb_to_Packages "$_debfile" "$_pkgspath"
 	done
 }

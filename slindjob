@@ -1,6 +1,12 @@
 #!/bin/sh
 
-SLINDJOB_CONFIG=/etc/slindjob-config
+SLINDJOB_CONFIG=~/.slindjob-config
+if [ ! -f "$SLINDJOB_CONFIG" ]; then
+	echo -n "Configuration file $SLINDJOB_CONFIG not found, "
+	echo "creating one for you"
+	cp /etc/slindjob-config "$SLINDJOB_CONFIG"
+fi
+
 LOGFILE="/tmp/slindjob-`date +%C%y%m%d_%H%M`"
 if [ -f "$SLINDJOB_CONFIG" ]; then
 	. "$SLINDJOB_CONFIG"

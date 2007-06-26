@@ -94,7 +94,13 @@ scan_just_one_deb() {
 	for _path in $_paths; do
 		_pkgspath="dists/$_path"
 		_pkgsfile="$_pkgspath/Packages"
-		deb_to_Packages "$_debfile" "$_pkgspath"
+
+		if [ -d "$_pkgspath" ]; then
+			deb_to_Packages "$_debfile" "$_pkgspath"
+		else
+			yell "WARNING: no index for package $_debfile"
+			yell "This may indicate that the section field is incorrect"
+		fi
 	done
 }
 

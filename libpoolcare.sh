@@ -55,13 +55,13 @@ override_get_pkg_version() {
 	local _suite="$2"
 	local _arch="$3"
 
-	local _condition="pkgname='$_source' and arch='$_arch'"
+	local _condition="pkgname='$_source' and (arch='$_arch' or arch='')"
 	if [ -n "$_suite" ]; then
 		_condition="$_condition and suite='$_suite'"
 	fi
 
 	local _version=`$SQLCMD "SELECT version FROM overrides
-		WHERE $_condition ORDER BY version DESC LIMIT 1"`
+		WHERE $_condition ORDER BY arch DESC LIMIT 1"`
 	if [ -z "$_version" ]; then
 		echo "Can't find $_pkgname version in overrides.db" >&2
 		exit 1

@@ -5,14 +5,15 @@ DEVSUITE="clydesdale"
 COMPONENTS="host-tools core gui security debug"
 ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 sh4a uclibc-sh4a"
 
-SLINDJOB_CONFIG=~/.slindjob-config
-if [ -f $SLINDJOB_CONFIG ]; then
-	. $SLINDJOB_CONFIG
+SLIND_CONFIG=~/.slind-config
+if [ -f $SLIND_CONFIG ]; then
+	. $SLIND_CONFIG
 else
-	echo "Can't open $SLINDJOB_CONFIG"
+	echo "Can't open $SLIND_CONFIG"
 	exit 1
 fi
-REPODIR="$POOL_DIR"
+REPODIR="$GRASP_REPO"
+[ -n "$REPODIR" ] || REPODIR="$HOME/grasp-out"
 
 LIBRARY=/usr/lib/slind-core/libpoolcare.sh
 if [ -f "$LIBRARY" ]; then

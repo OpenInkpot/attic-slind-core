@@ -158,6 +158,7 @@ case "$1" in
 		cp $0             $TARGET/build/$SCRIPT_NAME
 		cp $CONFIG_FILE   $TARGET/build/`basename $CONFIG_FILE`
 		cp $POOLCARE_LIB  $TARGET/build/`basename $POOLCARE_LIB`
+		chmod a+x $TARGET/build/$SCRIPT_NAME
 
 		echo "=== start toolchain building ==="
 		shift

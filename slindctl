@@ -31,6 +31,7 @@ MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs q
 [ -n "$POST_SLINDJOB_HOOK" ] || POST_SLINDJOB_HOOK=empty_hook
 
 empty_hook() {
+	true
 }
 
 # hackaround for the case of non-existing locales

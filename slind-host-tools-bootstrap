@@ -133,7 +133,7 @@ case "$1" in
 		install_base_host_tools_packages
 
 		if [ -z "$2" ]; then
-			echo "Exiting, no arches was specified."
+			echo "Exiting, no arches were specified."
 		else
 			shift
 			for arch in $@; do

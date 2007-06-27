@@ -17,7 +17,7 @@ BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg minip
 # list of host packages that we need to install before
 # we can even run package builder
 PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross g++-4.1-$GNUARCH linux-kernel-headers-${ARCH}-cross i386-toolchain toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
-MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo"
+MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo curl"
 
 # These all should be overrideable from configuration files
 # See grasp documentation for the actual meaning of those.
@@ -25,6 +25,13 @@ MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs q
 [ -n "$GITREPOS_DIR" ] || GITREPOS_DIR="/build/grasp-repos"
 [ -n "$TARBALLS_DIR" ] || TARBALLS_DIR="/build/grasp-tarballs"
 [ -n "$GRASP_REPO" ]   || GRASP_REPO="/build/grasp-out"
+
+# hook functions
+[ -n "$PRE_SLINDJOB_HOOK" ]  || PRE_SLINDJOB_HOOK=empty_hook
+[ -n "$POST_SLINDJOB_HOOK" ] || POST_SLINDJOB_HOOK=empty_hook
+
+empty_hook() {
+}
 
 # hackaround for the case of non-existing locales
 export LC_ALL=C
@@ -206,6 +213,14 @@ case "$1" in
 		dev_install $PKGLIST
 		add_user
 		configure_tools
+		;;
+	*maintainer-build*)
+		$PRE_SLINDJOB_HOOK
+		set -e
+		sh /usr/lib/slind-core/slind-host-tools-bootstrap --build
+		$CHROOTCMD "$CHROOTENV slindjob"
+		set +e
+		$POST_SLINDJOB_HOOK
 		;;
 	*build*)
 		build_for_host

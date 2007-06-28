@@ -2,8 +2,9 @@
 # pools, packages, indices, overrides and whatnot.
 
 # Before sourcing this file, make sure you have set:
-# * REPODIR -- root of your package repository
+# * REPODIR  -- root of your package repository
 # * DEVSUITE -- name of 'CURRENT' suite, e.g. 'clydesdale'
+# * ARCHES   -- list of supported architectures
 
 DISTSDIR="$REPODIR/dists"
 POOLDIR="$REPODIR/pool"
@@ -70,37 +71,86 @@ override_get_pkg_version() {
 	echo "$_version"
 }
 
-# get a list of suites for .deb package from overrides.db
+#get a list of available arches for packages
 # $1 -- source package name of .deb file
 # $2 -- package version
-# $3 -- arch name (optional)
-# returns a list of suites
-override_get_pkg_suites_list() {
+# $3 -- package suite name
+override_get_pkg_arches_list() {
 	local _source="$1"
 	local _version="$2"
-	local _arch="$3"
+	local _suite="$3"
 
-	$SQLCMD "SELECT DISTINCT suite FROM overrides
+	$SQLCMD "SELECT DISTINCT version || ' ' || arch FROM overrides
 			WHERE pkgname='$_source'
-			AND version='$_version'
-			AND (arch='$_arch' OR arch='')
-			ORDER BY suite DESC"
+			AND suite='$_suite'
+			ORDER BY version" | \
+	gawk	-v pkgname=$_source		\
+		-v req_version=$_version	\
+		-v all_arches_list="$ARCHES"	\
+	'BEGIN{
+		cnt = split(all_arches_list, tmp);
+		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "";
+	}
+	($1 == req_version){
+		if (NF == 2) and_arches[$2] = "yes";
+		else for(arch in all_arches) and_arches[arch] = "yes";
+	}
+	(($1 != req_version) && (NF == 2)){
+		not_arches[$2] = "yes";
+	}
+	END{
+		for(arch in and_arches)
+			if (!(arch in not_arches)) print(arch);
+	}'
 }
 
 #get a list of components for .deb package from overrides.db
 # $1 -- source package name of .deb file
 # $2 -- package version
-# $3 -- arch name (optional)
+# $3 -- package suite name
+# $4 -- arch name (optional)
 override_get_pkg_componets_list() {
 	local _source="$1"
 	local _version="$2"
-	local _arch="$3"
+	local _suite="$3"
+	local _arch="$4"
 
-	$SQLCMD "SELECT DISTINCT component FROM overrides
+	if [ "$_arch" = "" ]; then
+		_arch="all"
+	fi
+
+	$SQLCMD "SELECT DISTINCT version || ' ' || component || ' ' || arch FROM overrides
 			WHERE pkgname='$_source'
-			AND version='$_version'
-			AND (arch='$_arch' OR arch='')
-			ORDER BY component DESC"
+			AND suite='$_suite'
+			ORDER BY version" | \
+	gawk	-v pkgname=$_source		\
+		-v req_version=$_version	\
+		-v req_arch=$_arch		\
+		-v all_arches_list="$ARCHES"	\
+	'BEGIN{
+		cnt = split(all_arches_list, tmp);
+		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "";
+	}
+	($1 == req_version){
+		if (NF == 3){
+			and_arches[$3] = "yes";
+			component[$3] = $2;
+		}else for(arch in all_arches){
+			and_arches[arch] = "yes";
+			component[arch] = $2;
+		}
+	}
+	(($1 != req_version) && (NF == 3)){
+		not_arches[$3] = "yes";
+	}
+	END{
+		for(arch in and_arches){
+			if (arch in not_arches) continue;
+			if ((req_arch == "all") || (req_arch == arch))
+				result[component[arch]] = "";
+		}
+		for(comp in result) print(comp);
+	}'
 }
 
 # match source package against overrides db
@@ -109,12 +159,124 @@ override_get_pkg_componets_list() {
 # returns a list of 'suite/component' path component
 override_get_src_poolpath_list() {
 	local _source="$1"
-	local _pkgver="$2"
+	local _version="$2"
 
 	$SQLCMD "SELECT DISTINCT suite || '/' || component FROM overrides
 			WHERE pkgname='$_source'
-			AND version='$_pkgver'"
+			AND version='$_version'"
 }
+
+# add new record to overrides db
+# $1 -- source package name of .deb file
+# $2 -- package version
+# $3 -- package suite name
+# $4 -- arch (optional)
+# $5 -- component (optional)
+override_insert_new_record(){
+	local _source="$1"
+	local _version="$2"
+	local _suite="$3"
+	local _arch="$4"
+	local _component="$5"
+
+	if [ "$_arch" = "all" ]; then
+		_arch=""
+	fi
+
+	if [ -z "$_component" ]; then
+		_component="host-tools"
+	fi
+
+	yell "# adding $_source=$_version to suite='$_suite', component='$_component', arch='$_arch' in overrides"
+	$SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component) VALUES('$_source', '$_version', '$_suite', '$_arch', '$_component')"
+}
+
+# update package version in overrides db
+# $1 -- source package name of .deb file
+# $2 -- old package version
+# $3 -- package suite name
+# $4 -- new package version
+override_update_package_version(){
+	local _source="$1"
+	local _version="$2"
+	local _suite="$3"
+	local _new_version="$4"
+
+	yell "# update $_source=$_version from suite='$_suite' to version=$_new_version in overrides"
+	$SQLCMD "UPDATE overrides SET version='$_new_version'
+			WHERE pkgname='$_source'
+			AND version='$_version'
+			AND suite='$_suite'"
+}
+
+# try to add package to overrides db
+# $1 -- source package name of .deb file
+# $2 -- package version
+# $3 -- package suite name
+# returns FAIL on failure and OK on success
+override_try_add_package(){
+	local _source="$1"
+	local _version="$2"
+	local _suite="$3"
+	local _version_count=0
+	local _count=0
+	local _ver
+	local _arch
+	local _comp
+	local _i
+	
+
+	# Get (version, arch, component) for required (source, suite) and store
+	# them to separate arrays.
+	$SQLCMD "SELECT version || ' ' || component || ' ' || arch FROM overrides 
+			WHERE pkgname='$_source'
+			AND suite='$_suite'" \
+	| (
+		while read _ver[$_count] _comp[$_count] _arch[$_count]; do
+			_count=$((_count+1))
+		done
+
+
+		# get a number of different versions of package
+		for((_i=0;_i<_count;_i++)); do
+			_version_count=1
+			if [ "${_ver[0]}" != "${_ver[$_i]}" ]; then
+				_version_count=2
+				break
+			fi
+		done
+
+		if [ "$_version_count" -gt 1 ]; then
+			# too many record for package, resolve this situation manually
+			yell "WARNING: too many suitable records, can't update overrides for source package $_source=$_version"
+			echo "FAIL"
+		elif [ "$_version_count" -eq 1 ]; then
+			dpkg --compare-versions "$_version" gt "${_ver[0]}"
+			if [ "$?" = "0" ]; then
+				# the package is newer than current, add it to requited 
+				# suite and move older one to "attic"
+				override_update_package_version $_source ${_ver[0]} $_suite $_version
+				for((_i=0;_i<_count;_i++)); do
+					override_insert_new_record $_source ${_ver[$_i]} "attic" "${_arch[$_i]}" "${_comp[$_i]}"
+				done
+			elif [ "$_version" = "${_ver[0]}" ]; then
+				# the package is the same, do nothing
+				true
+			else
+				# the package is older than current, add it to "attic"
+				for((_i=0;_i<_count;_i++)); do
+					override_insert_new_record $_source $_version "attic" "${_arch[$_i]}" "${_comp[$_i]}"
+				done
+			fi
+			echo "OK"
+		else
+			# the package is new, add it to required suite for all arches.
+			override_insert_new_record $_source $_version $_suite
+			echo "OK"
+		fi
+	)
+}
+
 
 # Produce a 'Sources' entry from .dsc.
 # $1 -- path to .dsc file
@@ -171,10 +333,13 @@ get_deb_header() {
 # guess a dist/ path to Package file where information about
 # the given package should be written
 # $1 -- path to .deb file
+# $2 -- suite
 get_deb_distpath() {
 	local _debfile="$1"
+	local _suite="$2"
+	local _arches_list
+	local _a
 	local _comp
-	local _path
 
 	local _version="`get_deb_header $_debfile Version`"
 	local _arch="`get_deb_header $_debfile Architecture`"
@@ -183,37 +348,30 @@ get_deb_distpath() {
 		_source="`get_deb_header $_debfile Package`"
 	fi
 
-	local _path_list=`override_get_src_poolpath_list $_source $_version`
-	if [ -z "$_path_list" ]; then
-		yell "WARNING: cannot find $_source=$_version in" -n
-		yell "overrides table, assuming suite=$DEVSUITE"
-
-		local _comp="`get_deb_header $_debfile Section`"
-		if [ -z "$_comp" ]; then
-			yell "WARNING: package $_debfile lacks a " -n
-			yell "'Section:' header, assuming 'core'"
-			_comp=core
-		else
-			_comp="`translate_section $_comp $_source`"
-		fi
-		_path_list="$DEVSUITE/$_comp"
+	local _comp_list=`override_get_pkg_componets_list $_source $_version $_suite $_arch`
+	if [ -z "$_comp_list" ]; then
+		yell "WARNING: package $_debfile does not match override.db"
+		return
 	fi
 
-	for _path in $_path_list; do
+	for _comp in $_comp_list; do
 		if [ "$_arch" = "all" ]; then
-			for _a in $ARCHES; do
+			_arches_list=`override_get_pkg_arches_list $_source $_version $_suite`
+			for _a in $_arches_list; do
 				echo "$_path/binary-$_a"
 			done
 		else
-			echo "$_path/binary-$_arch"
+			echo "$_suite/$_comp/binary-$_arch"
 		fi
 	done
 }
 
 # determine where a given package belongs in a pool
 # $1 -- path to .deb file
+# $2 -- suite
 get_deb_poolpath() {
 	local _debfile="$1"
+	local _suite="$2"
 	local _comp
 
 	local _version="`get_deb_header $_debfile Version`"
@@ -222,20 +380,16 @@ get_deb_poolpath() {
 	if [ -z "$_source" ]; then
 		_source="`get_deb_header $_debfile Package`"
 	fi
-
-	local _comp_list=`override_get_pkg_componets_list $_source $_version $_arch`
+	
+	local _comp_list=`override_get_pkg_componets_list $_source $_version $_suite $_arch`
 	if [ -z "$_comp_list" ]; then
-		_comp_list="`get_deb_header $_debfile Section`"
-		if [ -z "$_comp_list" ]; then
-			yell "WARNING: package $_debfile lacks a " -n
-			yell "'Section:' header, assuming 'core'"
-			_comp_list=core
-		fi
+		yell "WARNING: package $_debfile does not match override.db"
+		return
 	fi
 
-	_pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
+	local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
 	for _comp in $_comp_list; do
-		echo "pool/$_comp/$_pkgprefix/$_source"
+		echo "pool/$_comp/$_pkgprefix/$_source/$_suite"
 	done
 }
 

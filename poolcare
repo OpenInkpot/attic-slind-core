@@ -60,22 +60,31 @@ scan_just_one_dsc() {
 	local _dscfile="$1"
 	local _path_list
 	local _path
+	local _result
 
 	local _pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
 	local _pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
 
 	# check with overrides db
 	_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
-
-	if [ -n "$_path_list" ]; then
-		for _path in $_path_list; do
-			# write a source entry to Sources file
-			dsc_to_Sources "$_dscfile" "$DISTSDIR/$_path/source"
-		done
-	else
-		yell "WARNING: cannot find source package $_pkgname=$_pkgver in" -n
-		yell "overrides table, ignore this package for now"
+	if [ -z "$_path_list" ]; then
+		_result=`override_try_add_package $_pkgname $_pkgver $DEVSUITE`
+		if [ "$_result" != "OK" ]; then  
+			yell "WARNING: cannot add source package $_pkgname=$_pkgver in" -n
+			yell "overrides table, ignore this package for now"
+			return
+		fi
+		_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
+		if [ -z "$_path_list" ]; then
+			yell "WARNING: can't index source package $_pkgname=$_pkgver"
+			return
+		fi
 	fi
+
+	for _path in $_path_list; do
+		# write a source entry to Sources file
+		dsc_to_Sources "$_dscfile" "$DISTSDIR/$_path/source"
+	done
 }
 
 scan_all_dsc() {
@@ -90,11 +99,15 @@ scan_all_dsc() {
 
 scan_just_one_deb() {
 	local _debfile="$1"
-	local _paths="`get_deb_distpath $_debfile`"
+	local _suite="$2"
+	local _paths="`get_deb_distpath $_debfile $_suite`"
+	
+	if [ -z "$_paths" ]; then
+		return
+	fi
 
 	for _path in $_paths; do
 		_pkgspath="dists/$_path"
-		_pkgsfile="$_pkgspath/Packages"
 
 		if [ -d "$_pkgspath" ]; then
 			deb_to_Packages "$_debfile" "$_pkgspath"
@@ -106,16 +119,21 @@ scan_just_one_deb() {
 }
 
 scan_all_deb() {
+	local _suite
+	local _debfile
+
 	pushd $REPODIR > /dev/null
 
 	find "$POOLDIR" -type f -name "*.deb" | while read _debfile; do
-		scan_just_one_deb "$_debfile"
+		# dirty hack, will fix later
+		_suite=`dirname $_debfile`
+		_suite=`basename $_suite`
+		
+		scan_just_one_deb "$_debfile" "$_suite"
 	done
-
 	popd > /dev/null
 }
 
 prologue
 scan_all_dsc
 scan_all_deb
-

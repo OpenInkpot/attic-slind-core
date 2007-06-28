@@ -28,10 +28,16 @@ if [ -z "$DEBNAME" ]; then
 	exit 1
 fi
 
-DEBPATH_LIST="`get_deb_poolpath $DEBNAME`"
+SUITE="$2"
+if [ -z "$SUITE" ]; then
+	echo "Please specify a suite"
+	exit 1
+fi
+
+DEBPATH_LIST="`get_deb_poolpath $DEBNAME $SUITE`"
 for dir in $DEBPATH_LIST; do
 	dir="$POOL_DIR/$dir"
-	echo "Moving to $dir"
+	echo "Copying to $dir"
 	mkdir -p "$dir"
 	cp "$DEBNAME" "$dir"
 done

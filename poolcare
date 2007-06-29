@@ -103,6 +103,7 @@ scan_just_one_deb() {
 	local _paths="`get_deb_distpath $_debfile $_suite`"
 	
 	if [ -z "$_paths" ]; then
+		yell "WARNING: no index for package $_debfile in suite=$_suite, ignore this package"
 		return
 	fi
 

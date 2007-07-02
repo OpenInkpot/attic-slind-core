@@ -14,12 +14,27 @@ SQLCMD="sqlite3 $OVERRIDES_DB"
 
 # initialize overrides database
 mkoverrides() {
+	mkdir -p $IDXDIR
 	$SQLCMD "create table overrides (
 		pkgname varchar NOT NULL,
 		version varchar NOT NULL,
 		suite char(24) NOT NULL,
 		arch char(32) NOT NULL,
-		component varchar NOT NULL);"
+		component varchar NOT NULL, UNIQUE (pkgname, version, suite, arch));
+		
+		create table binary_cache (
+		pkgname varchar NOT NULL,
+		version varchar NOT NULL,
+		suite char(24) NOT NULL,
+		arch char(32) NOT NULL,
+		deb_name varchar NOT NULL,
+		deb_arch varchar NOT NULL,
+		deb_size int NOT NULL,
+		deb_md5sum char(32) NOT NULL,
+		deb_control text NOT NULL,
+		deb_section varchar NOT NULL,
+		UNIQUE (pkgname, version, suite, arch, deb_name, deb_arch));
+		"
 }
 
 # throw a message to stderr
@@ -435,3 +450,28 @@ deb_to_Packages() {
 		> "$_packagespath/Packages.gz"
 }
 
+test_sanity() {
+	if [ -z "${REPODIR}" ];then
+		yell "REPODIR is not set"
+		exit 1
+	fi
+	[ -d "${REPODIR}" ] || yell "WARNING: IDXDIR=${REPODIR} does not exist"
+	if [ -z "${IDXDIR}" ];then
+		yell "IDXDIR is not set"
+		exit 1
+	fi
+	[ -d "${IDXDIR}" ] || yell "WARNING: IDXDIR=${IDXDIR} does not exist"
+	if [ -z "${OVERRIDES_DB}" ];then
+		yell "OVERRIDES_DB is not set"
+		exit 1
+	fi
+	[ -r "${OVERRIDES_DB}" ] || yell "WARNING: overrides database does not exist"
+	if [ -z "${DEVSUITE}" ];then
+		yell "DEVSUITE is not set"
+		exit 1
+	fi
+	if [ -z "${ARCHES}" ];then
+		yell "ARCHES is not set"
+		exit 1
+	fi
+}

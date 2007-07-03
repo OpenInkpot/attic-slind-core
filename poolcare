@@ -2,7 +2,7 @@
 
 SUITES="clydesdale percheron attic"
 DEVSUITE="clydesdale"
-COMPONENTS="host-tools core gui security debug"
+COMPONENTS="broken host-tools core gui security debug"
 ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 sh4a uclibc-sh4a"
 
 SLIND_CONFIG=~/.slind-config

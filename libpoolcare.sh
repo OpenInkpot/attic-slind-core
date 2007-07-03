@@ -211,14 +211,16 @@ override_insert_new_record(){
 # $2 -- old package version
 # $3 -- package suite name
 # $4 -- new package version
+# $5 -- source package's section field
 override_update_package_version(){
 	local _source="$1"
 	local _version="$2"
 	local _suite="$3"
 	local _new_version="$4"
+	local _component="$5"
 
 	yell "# update $_source=$_version from suite='$_suite' to version=$_new_version in overrides"
-	$SQLCMD "UPDATE overrides SET version='$_new_version'
+	$SQLCMD "UPDATE overrides SET version='$_new_version', component='$_component'
 			WHERE pkgname='$_source'
 			AND version='$_version'
 			AND suite='$_suite'"
@@ -272,7 +274,7 @@ override_try_add_package(){
 			if [ "$?" = "0" ]; then
 				# the package is newer than current, add it to requited 
 				# suite and move older one to "attic"
-				override_update_package_version $_source ${_ver[0]} $_suite $_version
+				override_update_package_version $_source ${_ver[0]} $_suite $_version $_component
 				for((_i=0;_i<_count;_i++)); do
 					override_insert_new_record $_source ${_ver[$_i]} "attic" "${_arch[$_i]}" "${_comp[$_i]}"
 				done
@@ -306,6 +308,7 @@ dsc_to_Sources() {
 	local _dscsz="`stat -c %s $_dscfile`"
 	local _dscdir="`echo -n $_dscfile | sed -e 's,/[^/]*$,,' -e 's,^.*pool/,pool/,'`"
 
+	[ -d "$_sourcespath" ] || mkdir -p "$_sourcespath"
 	gawk                               \
 		-v dscmd5="$_dscmd5"       \
 		-v dscsz="$_dscsz"         \

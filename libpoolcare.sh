@@ -378,7 +378,7 @@ get_deb_distpath() {
 		if [ "$_arch" = "all" ]; then
 			_arches_list=`override_get_pkg_arches_list $_source $_version $_suite`
 			for _a in $_arches_list; do
-				echo "$_path/binary-$_a"
+				echo "$_suite/$_comp/binary-$_a"
 			done
 		else
 			echo "$_suite/$_comp/binary-$_arch"

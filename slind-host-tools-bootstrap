@@ -29,9 +29,6 @@ export LC_ALL=C
 # if $NO_CLEAN is set in the environment, this function does nothing
 cleanup() {
 	if [ -z "$NO_CLEAN" -o "$1" = "force" ]; then
-		if [ -d $IDXDIR ]; then
-			rm -rf $IDXDIR
-		fi
 		if [ -d $BUILDDIR ]; then
 			rm -rf $BUILDDIR
 		fi
@@ -58,7 +55,8 @@ build_package() {
 get_overrides_db() {
 	echo "=== get overrides.db ==="
 
-	curl $HSTOOLS_MIRROR/indices/overrides.db -o $OVERRIDES_DB
+	[ -f "$OVERRIDES_DB" ] || \
+		curl $HSTOOLS_MIRROR/indices/overrides.db -o $OVERRIDES_DB
 	if [ "$?" != "0" ]; then
 		echo "Error: downloading of $HSTOOLS_MIRROR/indices/overrides.db failed"
 		exit 1

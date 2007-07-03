@@ -228,11 +228,13 @@ override_update_package_version(){
 # $1 -- source package name of .deb file
 # $2 -- package version
 # $3 -- package suite name
+# $4 -- source package's 'Section:' field
 # returns FAIL on failure and OK on success
 override_try_add_package(){
 	local _source="$1"
 	local _version="$2"
 	local _suite="$3"
+	local _component="$4"
 	local _version_count=0
 	local _count=0
 	local _ver
@@ -286,7 +288,7 @@ override_try_add_package(){
 			echo "OK"
 		else
 			# the package is new, add it to required suite for all arches.
-			override_insert_new_record $_source $_version $_suite
+			override_insert_new_record $_source $_version $_suite '' $_component
 			echo "OK"
 		fi
 	)

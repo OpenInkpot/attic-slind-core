@@ -64,11 +64,14 @@ scan_just_one_dsc() {
 
 	local _pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
 	local _pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
+	local _pkgcomp="`grep '^Section: ' $_dscfile | cut -d' ' -f2`"
+
+	[ -n "$_pkgcomp" ] || _pkgcomp='broken'
 
 	# check with overrides db
 	_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
 	if [ -z "$_path_list" ]; then
-		_result=`override_try_add_package $_pkgname $_pkgver $DEVSUITE`
+		_result=`override_try_add_package $_pkgname $_pkgver $DEVSUITE $_pkgcomp`
 		if [ "$_result" != "OK" ]; then  
 			yell "WARNING: cannot add source package $_pkgname=$_pkgver in" -n
 			yell "overrides table, ignore this package for now"

@@ -21,6 +21,7 @@ if [ ! -f $CONFIG_FILE ]; then
 	cp /etc/slind/slind-config $CONFIG_FILE
 fi
 
+[ -n "$DELIVERCMD" ] || DELIVERCMD=dummy_deliver_cmd
 
 # hackaround for the case of non-existing locales
 export LC_ALL=C
@@ -64,6 +65,13 @@ get_overrides_db() {
 	
 }
 
+dummy_deliver_cmd() {
+	local $_pkg="$1"
+	local $_suite="$2"
+
+	mv "$_pkg" "$POOLDIR"
+}
+
 # 2. build base host-tools packages and store them to $POOLDIR
 build_base_host_tools_packages() {
 	echo "=== building base host-tools packages ==="
@@ -73,7 +81,10 @@ build_base_host_tools_packages() {
 	for pkgname in $HSTOOLS_SRC_PKGLIST; do
 		build_package $pkgname
 	done
-	mv $BUILDDIR/*.deb $POOLDIR
+
+	for p in $BUILDDIR/*.deb; do
+		$DELIVERCMD $p $SUITE
+	done
 }
 
 # 3. install base host-tool packages from $POOLDIR

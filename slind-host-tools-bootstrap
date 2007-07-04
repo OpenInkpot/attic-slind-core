@@ -66,8 +66,8 @@ get_overrides_db() {
 }
 
 dummy_deliver_cmd() {
-	local $_pkg="$1"
-	local $_suite="$2"
+	local _pkg="$1"
+	local _suite="$2"
 
 	mv "$_pkg" "$POOLDIR"
 }

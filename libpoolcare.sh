@@ -395,6 +395,7 @@ get_deb_distpath() {
 
 	local _version="`get_deb_header $_debfile Version`"
 	local _arch="`get_deb_header $_debfile Architecture`"
+	local _deb_comp="`get_deb_header $_debfile Section`"
 	local _source="`get_deb_header $_debfile Source`"
 	if [ -z "$_source" ]; then
 		_source="`get_deb_header $_debfile Package`"
@@ -404,6 +405,11 @@ get_deb_distpath() {
 	if [ -z "$_comp_list" ]; then
 		yell "WARNING: package $_debfile does not match override.db"
 		return
+	fi
+
+	# if Section field is pesent, use it as a component name  
+	if [ -n "$_deb_comp" ]; then
+		_comp_list="$_deb_comp"
 	fi
 
 	for _comp in $_comp_list; do

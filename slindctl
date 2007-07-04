@@ -10,13 +10,17 @@ fi
 
 CHROOTCMD="$ROOTCMD chroot $TARGET su - build -c"
 HOSTARCH=`dpkg --print-architecture`
-GNUARCH=`dpkg-architecture -a$ARCH -qDEB_HOST_GNU_TYPE 2>/dev/null` || true
+
+TOOLCHAIN_LIST="i386-toolchain"
+for _a in $ARCHES; do
+	TOOLCHAIN_LIST="$TOOLCHAIN_LIST ${_a}-cross-toolchain"
+done
 
 # list of basic target packages
 BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg miniperl apt"
 # list of host packages that we need to install before
 # we can even run package builder
-PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross g++-4.1-$GNUARCH linux-kernel-headers-${ARCH}-cross i386-toolchain toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
+PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross $TOOLCHAIN_LIST toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
 MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo curl"
 
 # These all should be overrideable from configuration files
@@ -138,25 +142,34 @@ configure_tools() {
 
 # 5. build everything
 build_for_host() {
-	echo "=== build_for_host ==="
+	echo "=== build for host ==="
 	for pkg in $BASEPKGLIST; do
-		$CHROOTCMD "nc build $pkg --arch $HOSTARCH --path /slind"
+		$CHROOTCMD "nc build $pkg --arch $HOSTARCH --path $REPODIR"
 	done
 }
 
 build_for_target() {
-	echo "=== build_for_target ==="
-	$CHROOTCMD "nc world --arch $ARCH --path /slind"
+	echo "=== build for target ==="
+	local ARCH
+
+	for ARCH in $ARCHES; do
+		$CHROOTCMD "nc world --arch $ARCH --path $REPODIR"
+	done	
 }
 
 update_lists() {
-	$CHROOTCMD "nc update --arch $HOSTARCH --path /slind"
-	$CHROOTCMD "nc update --arch $ARCH --path /slind"
+	$CHROOTCMD "nc update --arch $HOSTARCH --path $REPODIR"
+
+	local ARCH
+
+	for ARCH in $ARCHES; do
+		$CHROOTCMD "nc update --arch $ARCH --path $REPODIR"
+	done
 }
 
 # 6. bootstrap i386 rootfs
 bootstrap_host() {
-	echo "=== bootstrap_host ==="
+	echo "=== bootstrap host ==="
 	[ -f $TARGET/slind/$SUITE ] || $ROOTCMD cp ./$SUITE $TARGET/slind
 	$ROOTCMD mkdir -p $TARGET/rootfs-$HOSTARCH
 	$ROOTCMD chroot $TARGET debootstrap $SUITE /rootfs-$HOSTARCH $SLINDSRC /slind/$SUITE
@@ -166,13 +179,18 @@ bootstrap_host() {
 # 7. bootstrap $ARCH rootfs
 bootstrap_target() {
 	echo "=== bootstrap_target ==="
-	$ROOTCMD mkdir -p $TARGET/rootfs-$ARCH
-	$ROOTCMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $TARGET/etc/cross-shell.conf
-	$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLINDSRC," $TARGET/etc/cross-shell.conf
-	$ROOTCMD chown -R $UID:$UID $TARGET/rootfs-$ARCH
-	$CHROOTCMD "cross-shell bs"
-	$CHROOTCMD "cross-shell apt $TARGET_APT"
-	$CHROOTCMD "cross-shell pack"
+
+	local ARCH
+
+	for ARCH in $ARCHES; do
+		$ROOTCMD mkdir -p $TARGET/rootfs-$ARCH
+		$ROOTCMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $TARGET/etc/cross-shell.conf
+		$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLINDSRC," $TARGET/etc/cross-shell.conf
+		$ROOTCMD chown -R $UID:$UID $TARGET/rootfs-$ARCH
+		$CHROOTCMD "cross-shell bs"
+		$CHROOTCMD "cross-shell apt $TARGET_APT"
+		$CHROOTCMD "cross-shell pack"
+	done
 }
 
 case "$1" in
@@ -220,6 +238,10 @@ case "$1" in
 		set -e
 		sh /usr/lib/slind-core/slind-host-tools-bootstrap --build
 		$CHROOTCMD "$CHROOTENV slindjob"
+		$CHROOTCMD "sudo apt-get update"
+		for ARCH in $ARCHES; do
+			$CHROOTCMD "$CHROOTENV REPODIR=$GRASP_REPO mktpkg $ARCH $SUITE"
+		done
 		set +e
 		$POST_SLINDJOB_HOOK
 		;;

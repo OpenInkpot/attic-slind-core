@@ -139,4 +139,8 @@ test_database
 test_pkg
 test_deb
 test_dsc
-# test_override
+$SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
+		 VALUES('b','1.0slind3','stable','i386','data')"
+for f in $test_PKGDIR/*.deb;do
+    override_insert_deb_info $f "stable" "i386"
+done

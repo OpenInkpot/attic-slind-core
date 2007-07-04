@@ -124,7 +124,7 @@ override_get_pkg_arches_list() {
 # $2 -- package version
 # $3 -- package suite name
 # $4 -- arch name (optional)
-override_get_pkg_componets_list() {
+override_get_pkg_components_list() {
 	local _source="$1"
 	local _version="$2"
 	local _suite="$3"
@@ -166,6 +166,38 @@ override_get_pkg_componets_list() {
 		}
 		for(comp in result) print(comp);
 	}'
+}
+
+override_insert_deb_info() {
+	local _deb="$1"
+	local _suite="$2"
+	local _arch="$3"
+	local _source=`get_deb_header $_deb Source`
+	local _version=`get_deb_header $_deb Version`
+	local _debname=`get_deb_header $_deb Package`
+	local _debsize=`du -sb $_deb | cut -f1`
+	local _md5sum=`md5sum $_deb | cut -d' ' -f1`
+	local _debcontrol=`ar p $_deb control.tar.gz | tar zxO ./control | egrep -v 'Source|Version|Package|Section|Architecture'`
+	if [ -z "$_source" ]; then
+		_source=$_debname
+	fi
+	local _ov_section=`override_get_pkg_components_list $_source $_version $_suite $_debarch`
+	if [ -z "$_ov_section" ]; then
+		yell "ERROR: Stale binary .deb $_deb, no source for $_source $_version $_suite $_debarch"
+		return
+	fi
+	local _debarch=`get_deb_header $_deb Architecture`
+	local _section=`get_deb_header $_deb Section`
+	if [ -z "$_section" ]; then
+	    _section=$_ov_section
+	fi
+	$SQLCMD "INSERT INTO binary_cache(pkgname, version, suite,
+					  arch, deb_name, deb_arch,
+					  deb_size, deb_md5sum,
+					  deb_control, deb_section)
+					  VALUES('$_source','$_version',
+					         '$_suite','$_arch','$_debname','$_debarch',
+						 '$_debsize','$_md5sum', '$_debcontrol', '$_section')"
 }
 
 # match source package against overrides db
@@ -368,7 +400,7 @@ get_deb_distpath() {
 		_source="`get_deb_header $_debfile Package`"
 	fi
 
-	local _comp_list=`override_get_pkg_componets_list $_source $_version $_suite $_arch`
+	local _comp_list=`override_get_pkg_components_list $_source $_version $_suite $_arch`
 	if [ -z "$_comp_list" ]; then
 		yell "WARNING: package $_debfile does not match override.db"
 		return
@@ -403,7 +435,7 @@ get_deb_poolpath() {
 	fi
 	
 	# check the package presence and get a list of component names
-	local _comp_list=`override_get_pkg_componets_list $_source $_version $_suite $_arch`
+	local _comp_list=`override_get_pkg_components_list $_source $_version $_suite $_arch`
 	if [ -z "$_comp_list" ]; then
 		yell "WARNING: package $_debfile does not match override.db"
 		return

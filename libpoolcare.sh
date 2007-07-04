@@ -99,8 +99,9 @@ override_get_pkg_arches_list() {
 			WHERE pkgname='$_source'
 			AND suite='$_suite'
 			ORDER BY version" | \
-	gawk	-v pkgname=$_source		\
-		-v req_version=$_version	\
+	gawk	-v pkgname="$_source"		\
+		-v req_version="$_version"	\
+		-v suite="$_suite"		\
 		-v all_arches_list="$ARCHES"	\
 	'BEGIN{
 		cnt = split(all_arches_list, tmp);
@@ -108,12 +109,21 @@ override_get_pkg_arches_list() {
 	}
 	($1 == req_version){
 		if (NF == 2) and_arches[$2] = "yes";
-		else for(arch in all_arches) and_arches[arch] = "yes";
+		else{
+			all_records++;
+			for(arch in all_arches) and_arches[arch] = "yes";
+		}
 	}
-	(($1 != req_version) && (NF == 2)){
-		not_arches[$2] = "yes";
+	($1 != req_version){
+		if (NF == 2) not_arches[$2] = "yes";
+		else all_records++;
 	}
 	END{
+		if (all_records > 1){
+			printf("ERROR: More than one ALL record found for package \"%s\" in suite \"%s\"\n",
+				pkgname, suite) >"/dev/stderr";
+			exit 1;
+		}
 		for(arch in and_arches)
 			if (!(arch in not_arches)) print(arch);
 	}'
@@ -138,9 +148,10 @@ override_get_pkg_components_list() {
 			WHERE pkgname='$_source'
 			AND suite='$_suite'
 			ORDER BY version" | \
-	gawk	-v pkgname=$_source		\
-		-v req_version=$_version	\
-		-v req_arch=$_arch		\
+	gawk	-v pkgname="$_source"		\
+		-v req_version="$_version"	\
+		-v suite="$_suite"		\
+		-v req_arch="$_arch"		\
 		-v all_arches_list="$ARCHES"	\
 	'BEGIN{
 		cnt = split(all_arches_list, tmp);
@@ -150,15 +161,24 @@ override_get_pkg_components_list() {
 		if (NF == 3){
 			and_arches[$3] = "yes";
 			component[$3] = $2;
-		}else for(arch in all_arches){
-			and_arches[arch] = "yes";
-			component[arch] = $2;
+		}else{
+			all_records++;
+			for(arch in all_arches){
+				and_arches[arch] = "yes";
+				component[arch] = $2;
+			}
 		}
 	}
-	(($1 != req_version) && (NF == 3)){
-		not_arches[$3] = "yes";
+	($1 != req_version){
+		if (NF == 3) not_arches[$3] = "yes";
+		else all_records++;
 	}
 	END{
+		if (all_records > 1){
+			printf("ERROR: More than one ALL record found for package \"%s\" in suite \"%s\"\n",
+				pkgname, suite) >"/dev/stderr";
+			exit 1;
+		}
 		for(arch in and_arches){
 			if (arch in not_arches) continue;
 			if ((req_arch == "all") || (req_arch == arch))
@@ -271,6 +291,7 @@ override_try_add_package(){
 	local _component="$4"
 	local _version_count=0
 	local _count=0
+	local _found=0
 	local _ver
 	local _arch
 	local _comp
@@ -298,9 +319,21 @@ override_try_add_package(){
 		done
 
 		if [ "$_version_count" -gt 1 ]; then
-			# too many record for package, resolve this situation manually
-			yell "WARNING: too many suitable records, can't update overrides for source package $_source=$_version"
-			echo "FAIL"
+			# check the list for existance of required package version
+			for((_i=0;_i<_count;_i++)); do
+				if [ "$_version" = "${_ver[$_i]}" ]; then
+					# the package is the same, just set a _found flag
+					_found=1
+				fi
+			done
+
+			if [ "$_found" -eq 0 ]; then
+				# too many record for package, resolve this situation manually
+				yell "WARNING: too many suitable records, can't update overrides for source package $_source=$_version"
+				echo "FAIL"
+			else
+				echo "OK"
+			fi
 		elif [ "$_version_count" -eq 1 ]; then
 			dpkg --compare-versions "$_version" gt "${_ver[0]}"
 			if [ "$?" = "0" ]; then

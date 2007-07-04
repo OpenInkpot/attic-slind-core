@@ -4,7 +4,7 @@ test_REPODIR="/tmp/repo"
 test_POOLDIR="/tmp/pool"
 REPODIR=${test_REPODIR}
 DEVSUITE=unstable
-ARCHES="i386 ppc arm"
+ARCHES="i386 ppc arm sh4 mips"
 . libpoolcare.sh
 
 test_database() {
@@ -14,20 +14,25 @@ test_database() {
 	    echo "test_database: FAIL(1)"
 	    return
 	else
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('a','1.0slind0','stable','i386','data')"
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('a','1.0slind0','stable','','data-new')"
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('a','1.0slind0','testing','','data')"
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('a','1.0slind0','testing','ppc','data')"
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('a','1.0slind0','stable','arm','data')"
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('a','1.0slind2','stable','ppc','data')"
-	    $SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('b','1.0slind2','stable','ppc','data')"
+	    override_insert_new_record 'a' '1.0slind0' 'stable'  'i386' 'data'
+	    override_insert_new_record 'a' '1.0slind0' 'stable'  ''     'data-new'
+	    override_insert_new_record 'a' '1.0slind0' 'testing' ''     'data'
+	    override_insert_new_record 'a' '1.0slind0' 'testing' 'ppc'  'data'
+	    override_insert_new_record 'a' '1.0slind0' 'stable'  'arm'  'data'
+	    override_insert_new_record 'a' '1.0slind2' 'stable'  'ppc'  'data'
+	    override_insert_new_record 'a' '1.0slind2' 'stable'  'mips' 'data'
+	    override_insert_new_record 'b' '1.0slind2' 'stable'  'ppc'  'data'
+
+	    override_insert_new_record 'c' '1.0slind0' 'stable'  ''     'data-all'
+	    override_insert_new_record 'c' '1.0slind1' 'stable'  'i386' 'data-i386'
+	    override_insert_new_record 'c' '1.0slind1' 'stable'  'ppc'  'data-ppc'
+	    override_insert_new_record 'c' '1.0slind1' 'stable'  'arm'  'data-arm'
+	    override_insert_new_record 'c' '1.0slind1' 'stable'  'sh4'  'data-sh4'
+	    override_insert_new_record 'c' '1.0slind1' 'stable'  'mips' 'data-mips'
+
+	    override_insert_new_record 'd' '1.0slind0' 'stable'  ''     'data-all'
+	    override_insert_new_record 'd' '1.0slind1' 'stable'  ''     'data-all'
+
 	    echo "test_database: OK"
 	fi
 }
@@ -135,12 +140,182 @@ test_override() {
   overrides_get_indep_deb_arches "a" "1.0slind0" "stable"
   get_deb_distpath 
 }
+
+test_override_get_pkg_arches_list() {
+	local _arches
+
+	_arches=`override_get_pkg_arches_list 'a' '1.0slind0' 'unknown'`
+	if [ -n "$_arches" ]; then
+		echo "test_override_get_pkg_arches_list: FAIL(1)"
+		return
+	fi
+
+	_arches=`override_get_pkg_arches_list 'a' '1.0slind0' 'stable' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_arches" != "arm i386 sh4 " ]; then
+		echo "test_override_get_pkg_arches_list: FAIL(2)"
+		return
+	fi
+
+	_arches=`override_get_pkg_arches_list 'a' '1.0slind2' 'stable' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_arches" != "mips ppc " ]; then
+		echo "test_override_get_pkg_arches_list: FAIL(3)"
+		return
+	fi
+
+	_arches=`override_get_pkg_arches_list 'c' '1.0slind0' 'stable'`
+	if [ -n "$_arches" ]; then
+		echo "test_override_get_pkg_arches_list: FAIL(4)"
+		return
+	fi
+
+	_arches=`override_get_pkg_arches_list 'c' '1.0slind1' 'stable' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_arches" != "arm i386 mips ppc sh4 " ]; then
+		echo "test_override_get_pkg_arches_list: FAIL(5)"
+		return
+	fi
+
+	_arches=`override_get_pkg_arches_list 'd' '1.0slind0' 'stable'`
+	if [ -n "$_arches" ]; then
+		echo "test_override_get_pkg_arches_list: FAIL(6)"
+		return
+	fi
+
+	echo "test_override_get_pkg_arches_list: OK"
+}
+
+test_override_get_pkg_components_list() {
+	local _components
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'unknown'`
+	if [ -n "$_components" ]; then
+		echo "test_override_get_pkg_components_list: FAIL(1)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_components" != "data data-new " ]; then
+		echo "test_override_get_pkg_components_list: FAIL(2)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'unknown' 'ppc'`
+	if [ -n "$_components" ]; then
+		echo "test_override_get_pkg_components_list: FAIL(3)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'arm' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_components" != "data " ]; then
+		echo "test_override_get_pkg_components_list: FAIL(4)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'sh4' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_components" != "data-new " ]; then
+		echo "test_override_get_pkg_components_list: FAIL(5)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind2' 'stable' 'ppc' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_components" != "data " ]; then
+		echo "test_override_get_pkg_components_list: FAIL(6)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'a' '1.0slind2' 'stable' 'arm'`
+	if [ -n "$_components" ]; then
+		echo "test_override_get_pkg_components_list: FAIL(7)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'c' '1.0slind0' 'stable'`
+	if [ -n "$_components" ]; then
+		echo "test_override_get_pkg_components_list: FAIL(8)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_components" != "data-arm data-i386 data-mips data-ppc data-sh4 " ]; then
+		echo "test_override_get_pkg_components_list: FAIL(9)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' 'ppc' | sort | awk '{printf("%s ", $0);}'`
+	if [ "$_components" != "data-ppc " ]; then
+		echo "test_override_get_pkg_components_list: FAIL(10)"
+		return
+	fi
+
+	_components=`override_get_pkg_components_list 'd' '1.0slind0' 'stable'`
+	if [ -n "$_components" ]; then
+		echo "test_override_get_pkg_components_list: FAIL(11)"
+		return
+	fi
+	
+	echo "test_override_get_pkg_components_list: OK"
+}
+
+test_override_try_add_package() {
+	local _result
+	local _components
+
+	_result=`override_try_add_package 'gcc' '4.1.2-1' 'clydesdale' 'broken'`
+	if [ "$_result" != OK ]; then
+		echo "test_override_try_add_package: FAIL(1)"
+		return
+	fi
+	_components=`override_get_pkg_components_list 'gcc' '4.1.2-1' 'clydesdale'`
+	if [ "$_components" != "broken" ]; then
+		echo "test_override_try_add_package: FAIL(1a)"
+		return
+	fi
+
+	_result=`override_try_add_package 'gcc' '4.1.2-1' 'clydesdale' 'broken'`
+	if [ "$_result" != OK ]; then
+		echo "test_override_try_add_package: FAIL(2)"
+		return
+	fi
+
+	_result=`override_try_add_package 'gcc' '4.1.2-2' 'clydesdale' 'broken1'`
+	if [ "$_result" != OK ]; then
+		echo "test_override_try_add_package: FAIL(3)"
+		return
+	fi
+	_components=`override_get_pkg_components_list 'gcc' '4.1.2-2' 'clydesdale'`
+	if [ "$_components" != "broken1" ]; then
+		echo "test_override_try_add_package: FAIL(3a)"
+		return
+	fi
+	_components=`override_get_pkg_components_list 'gcc' '4.1.2-1' 'attic'`
+	if [ "$_components" != "broken" ]; then
+		echo "test_override_try_add_package: FAIL(3b)"
+		return
+	fi
+
+	_result=`override_try_add_package 'c' '1.0slind1' 'stable'`
+	if [ "$_result" != OK ]; then
+		echo "test_override_try_add_package: FAIL(4)"
+		return
+	fi
+
+	_result=`override_try_add_package 'c' '1.0slind2' 'stable'`
+	if [ "$_result" != FAIL ]; then
+		echo "test_override_try_add_package: FAIL(5)"
+		return
+	fi
+
+	echo "test_override_try_add_package: OK"
+}
+
 test_database
+test_override_get_pkg_arches_list
+test_override_get_pkg_components_list
+test_override_try_add_package
 test_pkg
 test_deb
 test_dsc
-$SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component)
-		 VALUES('b','1.0slind3','stable','i386','data')"
+override_insert_new_record 'b' '1.0slind3' 'stable' 'i386' 'data'
 for f in $test_PKGDIR/*.deb;do
     override_insert_deb_info $f "stable" "i386"
 done
+

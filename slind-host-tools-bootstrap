@@ -81,10 +81,6 @@ build_base_host_tools_packages() {
 	for pkgname in $HSTOOLS_SRC_PKGLIST; do
 		build_package $pkgname
 	done
-
-	for p in $BUILDDIR/*.deb; do
-		$DELIVERCMD $p $SUITE
-	done
 }
 
 # 3. install base host-tool packages from $POOLDIR
@@ -98,9 +94,9 @@ install_base_host_tools_packages() {
 	for pkgname in $HSTOOLS_TO_INSTALL; do
 		pkglist="$pkglist ${pkgname}_*.deb"
 	done
-	cd $POOLDIR
-	sudo dpkg -i $pkglist
-	sudo apt-get -f install --yes --force-yes
+	( cd $BUILDDIR && \
+	sudo dpkg -i $pkglist && \
+	sudo apt-get -f install --yes --force-yes )
 }
 
 # 4. build toolchain packages and store them to $POOLDIR
@@ -109,12 +105,22 @@ build_toolchain() {
 
 	local ARCH=$1
 
-	if [ -d $TOOLCHAIN_BUILDDIR ]; then
+	if [ -d $TOOLCHAIN_BUILDDIR -a -z "$NO_CLEAN" ]; then
 		rm -rf $TOOLCHAIN_BUILDDIR
 	fi
 
 	REPODIR=$REPODIR SRC_DIR=$TOOLCHAIN_BUILDDIR mktpkg $ARCH
-	mv $TOOLCHAIN_BUILDDIR/*.deb $POOLDIR
+}
+
+# 5. deliver built packages to repository
+# $1 -- directory containing *.deb files
+deliver_packages() {
+	local from="$1"
+	local p
+
+	for p in $from/*.deb; do
+		$DELIVERCMD $p $SUITE
+	done
 }
 
 case "$1" in
@@ -140,6 +146,7 @@ case "$1" in
 		get_overrides_db
 		build_base_host_tools_packages
 		install_base_host_tools_packages
+		deliver_packages $BUILDDIR
 
 		if [ -z "$2" ]; then
 			echo "Exiting, no arches were specified."
@@ -147,8 +154,8 @@ case "$1" in
 			shift
 			for arch in $@; do
 				build_toolchain $arch
+				deliver_packages $TOOLCHAIN_BUILDDIR
 			done
-			
 		fi
 		
 		cleanup

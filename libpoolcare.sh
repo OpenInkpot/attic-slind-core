@@ -258,21 +258,23 @@ override_insert_new_record(){
 	$SQLCMD "INSERT INTO overrides (pkgname, version, suite, arch, component) VALUES('$_source', '$_version', '$_suite', '$_arch', '$_component')"
 }
 
-# update package version in overrides db
+# replace suite for package in overrides db
 # $1 -- source package name of .deb file
-# $2 -- old package version
+# $2 -- package version
 # $3 -- package suite name
-# $4 -- new package version
-# $5 -- source package's section field
-override_update_package_version(){
+# $4 -- new package suite name
+override_replace_suite(){
 	local _source="$1"
 	local _version="$2"
 	local _suite="$3"
-	local _new_version="$4"
-	local _component="$5"
+	local _new_suite="$4"
 
-	yell "# update $_source=$_version from suite='$_suite' to version=$_new_version in overrides"
-	$SQLCMD "UPDATE overrides SET version='$_new_version', component='$_component'
+	yell "# change suite for $_source=$_version from suite='$_suite' to suite=$_new_suite in overrides"
+	$SQLCMD "UPDATE overrides SET suite='$_new_suite'
+			WHERE pkgname='$_source'
+			AND version='$_version'
+			AND suite='$_suite'"
+	$SQLCMD "UPDATE binary_cache SET suite='$_new_suite'
 			WHERE pkgname='$_source'
 			AND version='$_version'
 			AND suite='$_suite'"
@@ -337,11 +339,11 @@ override_try_add_package(){
 		elif [ "$_version_count" -eq 1 ]; then
 			dpkg --compare-versions "$_version" gt "${_ver[0]}"
 			if [ "$?" = "0" ]; then
-				# the package is newer than current, add it to requited 
+				# the package is newer than current, add it to required 
 				# suite and move older one to "attic"
-				override_update_package_version $_source ${_ver[0]} $_suite $_version $_component
+				override_replace_suite $_source ${_ver[0]} $_suite "attic"
 				for((_i=0;_i<_count;_i++)); do
-					override_insert_new_record $_source ${_ver[$_i]} "attic" "${_arch[$_i]}" "${_comp[$_i]}"
+					override_insert_new_record $_source $_version $_suite "${_arch[$_i]}" $_component
 				done
 			elif [ "$_version" = "${_ver[0]}" ]; then
 				# the package is the same, do nothing
@@ -349,7 +351,7 @@ override_try_add_package(){
 			else
 				# the package is older than current, add it to "attic"
 				for((_i=0;_i<_count;_i++)); do
-					override_insert_new_record $_source $_version "attic" "${_arch[$_i]}" "${_comp[$_i]}"
+					override_insert_new_record $_source $_version "attic" "${_arch[$_i]}" $_component
 				done
 			fi
 			echo "OK"

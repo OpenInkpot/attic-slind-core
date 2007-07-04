@@ -150,14 +150,14 @@ test_override_get_pkg_arches_list() {
 		return
 	fi
 
-	_arches=`override_get_pkg_arches_list 'a' '1.0slind0' 'stable' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_arches" != "arm i386 sh4 " ]; then
+	_arches=`override_get_pkg_arches_list 'a' '1.0slind0' 'stable' | sort | xargs`
+	if [ "$_arches" != "arm i386 sh4" ]; then
 		echo "test_override_get_pkg_arches_list: FAIL(2)"
 		return
 	fi
 
-	_arches=`override_get_pkg_arches_list 'a' '1.0slind2' 'stable' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_arches" != "mips ppc " ]; then
+	_arches=`override_get_pkg_arches_list 'a' '1.0slind2' 'stable' | sort | xargs`
+	if [ "$_arches" != "mips ppc" ]; then
 		echo "test_override_get_pkg_arches_list: FAIL(3)"
 		return
 	fi
@@ -168,8 +168,8 @@ test_override_get_pkg_arches_list() {
 		return
 	fi
 
-	_arches=`override_get_pkg_arches_list 'c' '1.0slind1' 'stable' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_arches" != "arm i386 mips ppc sh4 " ]; then
+	_arches=`override_get_pkg_arches_list 'c' '1.0slind1' 'stable' | sort | xargs`
+	if [ "$_arches" != "arm i386 mips ppc sh4" ]; then
 		echo "test_override_get_pkg_arches_list: FAIL(5)"
 		return
 	fi
@@ -192,8 +192,8 @@ test_override_get_pkg_components_list() {
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_components" != "data data-new " ]; then
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' | sort | xargs`
+	if [ "$_components" != "data data-new" ]; then
 		echo "test_override_get_pkg_components_list: FAIL(2)"
 		return
 	fi
@@ -204,20 +204,20 @@ test_override_get_pkg_components_list() {
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'arm' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_components" != "data " ]; then
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'arm' | sort | xargs`
+	if [ "$_components" != "data" ]; then
 		echo "test_override_get_pkg_components_list: FAIL(4)"
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'sh4' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_components" != "data-new " ]; then
+	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'sh4' | sort | xargs`
+	if [ "$_components" != "data-new" ]; then
 		echo "test_override_get_pkg_components_list: FAIL(5)"
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind2' 'stable' 'ppc' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_components" != "data " ]; then
+	_components=`override_get_pkg_components_list 'a' '1.0slind2' 'stable' 'ppc' | sort | xargs`
+	if [ "$_components" != "data" ]; then
 		echo "test_override_get_pkg_components_list: FAIL(6)"
 		return
 	fi
@@ -234,14 +234,14 @@ test_override_get_pkg_components_list() {
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_components" != "data-arm data-i386 data-mips data-ppc data-sh4 " ]; then
+	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' | sort | xargs`
+	if [ "$_components" != "data-arm data-i386 data-mips data-ppc data-sh4" ]; then
 		echo "test_override_get_pkg_components_list: FAIL(9)"
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' 'ppc' | sort | awk '{printf("%s ", $0);}'`
-	if [ "$_components" != "data-ppc " ]; then
+	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' 'ppc' | sort | xargs`
+	if [ "$_components" != "data-ppc" ]; then
 		echo "test_override_get_pkg_components_list: FAIL(10)"
 		return
 	fi

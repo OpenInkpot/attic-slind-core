@@ -505,6 +505,52 @@ get_deb_pathlist() {
 	esac
 }
 
+# output package's information (control) for Packages file
+# $1 -- name to source
+# $2 -- version
+# $3 -- arch for source
+# $4 -- suite
+
+get_Packages_by_source() {
+	local _pkgname="$1"
+	local _version="$2"
+	local _arch="$3"
+	local _suite="$4"
+	local _SQL="SELECT 'Package: ' || deb_name || '<BR>'
+			||'Source: ' || pkgname || '<BR>'
+	                ||'Version: ' || version || '<BR>'
+			||'Architecture: ' || deb_arch || '<BR>'
+			||'Size: ' || deb_size || '<BR>'
+			||'MD5sum: ' || deb_md5sum || '<BR>'
+			||'Section: ' || deb_section || '<BR>'
+			|| deb_control || '<BR>'
+	            FROM binary_cache WHERE pkgname='$_pkgname'
+				      AND version='$_version'
+				      AND arch='$_arch'
+				      AND suite='$_suite'"
+
+	$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g'
+}
+
+# output package's information (control) for Packages file
+# $1 -- architecture for suite
+# $2 -- suite
+
+get_Packages_by_suite() {
+	local _arch="$1"
+	local _suite="$2"
+	local _SQL="SELECT 'Package: ' || deb_name || '<BR>'
+			||'Source: ' || pkgname || '<BR>'
+	                ||'Version: ' || version || '<BR>'
+			||'Architecture: ' || deb_arch || '<BR>'
+			||'Size: ' || deb_size || '<BR>'
+			||'MD5sum: ' || deb_md5sum || '<BR>'
+			||'Section: ' || deb_section || '<BR>'
+			|| deb_control || '<BR>'
+	            FROM binary_cache WHERE suite='$_suite' AND arch='$_arch'"
+	$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g'
+}
+
 # output package's information (control) to a Packages file
 # $1 -- path to .deb file
 # $2 -- path to Packages

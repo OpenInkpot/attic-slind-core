@@ -75,6 +75,8 @@ test_database() {
 
 		override_insert_new_record 'd' '1.0slind0' 'stable'  ''     'data-all'
 		override_insert_new_record 'd' '1.0slind1' 'stable'  ''     'data-all'
+		override_insert_new_record 'd' '1.0slind0' 'stable'  'arm'  'data-all'
+		override_insert_new_record 'd' '1.0slind1' 'stable'  'arm'  'data-all'
 
 		echo "test_database: OK"
 	fi
@@ -139,6 +141,72 @@ test_dsc() {
 	fi
     done
     echo "test_dsc: OK"
+}
+
+test_override_get_pkg_version() {
+	local _version
+
+	_version=`override_get_pkg_version 'a' 'unknown'`;
+	if [ -n "$_version" ]; then
+		echo "test_override_get_pkg_version: FAIL(1)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'a' 'stable'`;
+	if [ "$_version" != "1.0slind0" ]; then
+		echo "test_override_get_pkg_version: FAIL(2)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'a' 'stable' 'i386'`;
+	if [ "$_version" != "1.0slind0" ]; then
+		echo "test_override_get_pkg_version: FAIL(3)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'a' 'stable' 'ppc'`;
+	if [ "$_version" != "1.0slind2" ]; then
+		echo "test_override_get_pkg_version: FAIL(4)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'b' 'stable'`;
+	if [ -n "$_version" ]; then
+		echo "test_override_get_pkg_version: FAIL(5)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'b' 'stable' 'arm'`;
+	if [ -n "$_version" ]; then
+		echo "test_override_get_pkg_version: FAIL(6)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'b' 'stable' 'ppc'`;
+	if [ "$_version" != "1.0slind2" ]; then
+		echo "test_override_get_pkg_version: FAIL(7)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'd' 'stable'`;
+	if [ -n "$_version" ]; then
+		echo "test_override_get_pkg_version: FAIL(8)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'd' 'stable' 'arm'`;
+	if [ -n "$_version" ]; then
+		echo "test_override_get_pkg_version: FAIL(9)"
+		return
+	fi
+
+	_version=`override_get_pkg_version 'd' 'stable' 'ppc'`;
+	if [ -n "$_version" ]; then
+		echo "test_override_get_pkg_version: FAIL(10)"
+		return
+	fi
+
+	echo "test_override_get_pkg_version: OK"
 }
 
 test_override_get_pkg_arches_list() {
@@ -361,10 +429,12 @@ test_get_deb_pathlist() {
 	echo "test_get_deb_pathlist: OK"
 }
 
+
 test_database
 test_pkg
 test_deb
 test_dsc
+test_override_get_pkg_version
 test_override_get_pkg_arches_list
 test_override_get_pkg_components_list
 test_override_try_add_package

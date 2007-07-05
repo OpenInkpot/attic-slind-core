@@ -64,22 +64,42 @@ translate_section() {
 
 # get most recent package version from overrides.db
 # $1 -- source package name
-# $2 -- package suite name (optional)
+# $2 -- package suite name
 # $3 -- arch name (optional)
 override_get_pkg_version() {
 	local _source="$1"
 	local _suite="$2"
 	local _arch="$3"
 
-	local _condition="pkgname='$_source' and (arch='$_arch' or arch='')"
-	if [ -n "$_suite" ]; then
-		_condition="$_condition and suite='$_suite'"
-	fi
-
-	local _version=`$SQLCMD "SELECT version FROM overrides
-		WHERE $_condition ORDER BY arch DESC LIMIT 1"`
+	local _version=`$SQLCMD "SELECT version || ' ' || arch FROM overrides
+			WHERE pkgname='$_source'
+			AND suite='$_suite'
+			AND (arch='$_arch' OR arch='')" | \
+	gawk	-v pkgname="$_source"		\
+		-v suite="$_suite"		\
+	'function ERROR(arch){
+		printf("ERROR: More than one arch=%s record found for package \"%s\" in suite \"%s\"\n",
+			arch, pkgname, suite) >"/dev/stderr";
+		fatal_error=1;
+	}
+	(NF == 2){
+		arch=$2;
+		arch_records++;
+		arch_version=$1
+	}
+	(NF == 1){
+		all_records++;
+		all_version=$1;
+	}
+	END{
+		if (all_records > 1) ERROR("all");
+		if (arch_records > 1) ERROR(arch);
+		if (fatal_error) exit(1);
+		if (arch_records > 0) print arch_version;
+		else if (all_records > 0) print all_version;
+	}'`
 	if [ -z "$_version" ]; then
-		echo "Can't find $_pkgname version in overrides.db" >&2
+		yell "Can't find $_source version in overrides.db"
 		exit 1
 	fi
 
@@ -105,25 +125,33 @@ override_get_pkg_arches_list() {
 		-v all_arches_list="$ARCHES"	\
 	'BEGIN{
 		cnt = split(all_arches_list, tmp);
-		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "";
+		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "0";
+	}
+	function ERROR(arch){
+		printf("ERROR: More than one arch=%s record found for package \"%s\" in suite \"%s\"\n",
+			arch, pkgname, suite) >"/dev/stderr";
+		fatal_error=1;
 	}
 	($1 == req_version){
-		if (NF == 2) and_arches[$2] = "yes";
-		else{
+		if (NF == 2){
+			all_arches[$2]++;
+			and_arches[$2] = "yes";
+		}else{
 			all_records++;
 			for(arch in all_arches) and_arches[arch] = "yes";
 		}
 	}
 	($1 != req_version){
-		if (NF == 2) not_arches[$2] = "yes";
-		else all_records++;
+		if (NF == 2){
+			all_arches[$2]++;
+			not_arches[$2] = "yes";
+		}else all_records++;
 	}
 	END{
-		if (all_records > 1){
-			printf("ERROR: More than one ALL record found for package \"%s\" in suite \"%s\"\n",
-				pkgname, suite) >"/dev/stderr";
-			exit 1;
-		}
+		if (all_records > 1) ERROR("all");
+		for(arch in all_arches)
+		    if (all_arches[arch] > 1) ERROR(arch);
+		if (fatal_error) exit(1);
 		for(arch in and_arches)
 			if (!(arch in not_arches)) print(arch);
 	}'
@@ -155,10 +183,16 @@ override_get_pkg_components_list() {
 		-v all_arches_list="$ARCHES"	\
 	'BEGIN{
 		cnt = split(all_arches_list, tmp);
-		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "";
+		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "0";
+	}
+	function ERROR(arch){
+		printf("ERROR: More than one arch=%s record found for package \"%s\" in suite \"%s\"\n",
+			arch, pkgname, suite) >"/dev/stderr";
+		fatal_error=1;
 	}
 	($1 == req_version){
 		if (NF == 3){
+			all_arches[$3]++;
 			and_arches[$3] = "yes";
 			component[$3] = $2;
 		}else{
@@ -170,15 +204,16 @@ override_get_pkg_components_list() {
 		}
 	}
 	($1 != req_version){
-		if (NF == 3) not_arches[$3] = "yes";
-		else all_records++;
+		if (NF == 3){
+			all_arches[$3]++;
+			not_arches[$3] = "yes";
+		}else all_records++;
 	}
 	END{
-		if (all_records > 1){
-			printf("ERROR: More than one ALL record found for package \"%s\" in suite \"%s\"\n",
-				pkgname, suite) >"/dev/stderr";
-			exit 1;
-		}
+		if (all_records > 1) ERROR("all");
+		for(arch in all_arches)
+		    if (all_arches[arch] > 1) ERROR(arch);
+		if (fatal_error) exit(1);
 		for(arch in and_arches){
 			if (arch in not_arches) continue;
 			if ((req_arch == "all") || (req_arch == arch))
@@ -418,7 +453,7 @@ get_deb_header() {
 }
 
 # get a placement of given deb in pool or related Package index
-# $1 -- (Package
+# $1 -- request: "index" or "pool"
 # $2 -- path to .deb file
 # $3 -- suite
 get_deb_pathlist() {

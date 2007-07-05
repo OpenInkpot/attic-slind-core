@@ -39,7 +39,7 @@ if [ -z "$SUITE" ]; then
 	exit 1
 fi
 
-DEBPATH_LIST="`get_deb_poolpath $DEBNAME $SUITE`"
+DEBPATH_LIST=`get_deb_pathlist pool $DEBNAME $SUITE`
 for dir in $DEBPATH_LIST; do
 	dir="$REPODIR/$dir"
 	echo "Copying to $dir"

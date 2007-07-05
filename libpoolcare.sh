@@ -273,8 +273,8 @@ override_replace_suite(){
 	$SQLCMD "UPDATE overrides SET suite='$_new_suite'
 			WHERE pkgname='$_source'
 			AND version='$_version'
-			AND suite='$_suite'"
-	$SQLCMD "UPDATE binary_cache SET suite='$_new_suite'
+			AND suite='$_suite';
+		 UPDATE binary_cache SET suite='$_new_suite'
 			WHERE pkgname='$_source'
 			AND version='$_version'
 			AND suite='$_suite'"
@@ -417,15 +417,14 @@ get_deb_header() {
 	echo "$_value"
 }
 
-# guess a dist/ path to Package file where information about
-# the given package should be written
-# $1 -- path to .deb file
-# $2 -- suite
-get_deb_distpath() {
-	local _debfile="$1"
-	local _suite="$2"
-	local _arches_list
-	local _a
+# get a placement of given deb in pool or related Package index
+# $1 -- (Package
+# $2 -- path to .deb file
+# $3 -- suite
+get_deb_pathlist() {
+	local _request="$1"
+	local _debfile="$2"
+	local _suite="$3"
 	local _comp
 
 	local _version="`get_deb_header $_debfile Version`"
@@ -447,50 +446,28 @@ get_deb_distpath() {
 		_comp_list="$_deb_comp"
 	fi
 
-	for _comp in $_comp_list; do
-		if [ "$_arch" = "all" ]; then
-			_arches_list=`override_get_pkg_arches_list $_source $_version $_suite`
-			for _a in $_arches_list; do
-				echo "$_suite/$_comp/binary-$_a"
+	case "$_request" in
+		pool)
+			local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
+			for _comp in $_comp_list; do
+				echo "pool/$_comp/$_pkgprefix/$_source/$_suite"
 			done
-		else
-			echo "$_suite/$_comp/binary-$_arch"
-		fi
-	done
-}
-
-# determine where a given package belongs in a pool
-# $1 -- path to .deb file
-# $2 -- suite
-get_deb_poolpath() {
-	local _debfile="$1"
-	local _suite="$2"
-	local _comp
-
-	local _version="`get_deb_header $_debfile Version`"
-	local _arch="`get_deb_header $_debfile Architecture`"
-	local _deb_comp="`get_deb_header $_debfile Section`"
-	local _source="`get_deb_header $_debfile Source`"
-	if [ -z "$_source" ]; then
-		_source="`get_deb_header $_debfile Package`"
-	fi
-	
-	# check the package presence and get a list of component names
-	local _comp_list=`override_get_pkg_components_list $_source $_version $_suite $_arch`
-	if [ -z "$_comp_list" ]; then
-		yell "WARNING: package $_debfile does not match override.db"
-		return
-	fi
-
-	# if Section field is pesent, use it as a component name  
-	if [ -n "$_deb_comp" ]; then
-		_comp_list="$_deb_comp"
-	fi
-
-	local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
-	for _comp in $_comp_list; do
-		echo "pool/$_comp/$_pkgprefix/$_source/$_suite"
-	done
+			;;
+		index)
+			local _arches_list="$_arch"
+			if [ "$_arches_list" = "all" ]; then
+				_arches_list=`override_get_pkg_arches_list $_source $_version $_suite`
+			fi
+			for _comp in $_comp_list; do
+				for _arch in $_arches_list; do
+					echo "$_suite/$_comp/binary-$_arch"
+				done
+			done
+			;;
+		*)
+			yell "ERROR: unknown request to get_deb_pathlist()."
+			;;
+	esac
 }
 
 # output package's information (control) to a Packages file

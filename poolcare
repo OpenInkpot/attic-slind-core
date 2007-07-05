@@ -103,7 +103,7 @@ scan_all_dsc() {
 scan_just_one_deb() {
 	local _debfile="$1"
 	local _suite="$2"
-	local _paths="`get_deb_distpath $_debfile $_suite`"
+	local _paths="`get_deb_pathlist index $_debfile $_suite`"
 	
 	if [ -z "$_paths" ]; then
 		yell "WARNING: no index for package $_debfile in suite=$_suite, ignore this package"

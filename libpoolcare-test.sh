@@ -7,82 +7,87 @@ DEVSUITE=unstable
 ARCHES="i386 ppc arm sh4 mips"
 . libpoolcare.sh
 
+create_deb_package() {
+	local _name="$1"
+	local _version="$2"
+	local _arch="$3"
+	local _section="$4"
+
+	if [ -z "$_arch" ]; then
+		_arch="all"
+	fi
+
+	if [ -z "$_section" ]; then
+		_section="core"
+	fi
+
+	rm -Rf "${test_PKGDIR}/$_name-$_version" 2>/dev/null
+	mkdir -p "${test_PKGDIR}/$_name-$_version/debian/$_name"
+	cat >"${test_PKGDIR}/$_name-$_version/debian/control" <<EOF
+Source: $_name
+Section: $_section
+Priority: optional
+Maintainer: Nobody <nobody@localhost>
+
+Package: $_name
+Architecture: $_arch
+Description: test package
+  test package
+EOF
+	cat >"${test_PKGDIR}/$_name-$_version/debian/changelog" <<EOF
+$_name ($_version) unstable; urgency=low
+
+  * test
+
+ -- Nobody <nobody@localhost>  Wed, 23 May 2007 14:28:33 +0400
+EOF
+	echo -e "#!/bin/sh\ndh_gencontrol\ndh_builddeb" > "${test_PKGDIR}/$_name-$_version/debian/rules"
+	echo "Hello, World!" > "${test_PKGDIR}/$_name-$_version/debian/$_name/README"
+	echo 4 > "${test_PKGDIR}/$_name-$_version/debian/compat"
+	chmod +x "${test_PKGDIR}/$_name-$_version/debian/rules"
+	(cd "${test_PKGDIR}/$_name-$_version" && dpkg-buildpackage -rfakeroot) >/dev/null
+}
+
+
 test_database() {
 	test_sanity
 	mkoverrides
 	if [ $? -ne 0 ]; then
-	    echo "test_database: FAIL(1)"
-	    return
+		echo "test_database: FAIL(1)"
+		return
 	else
-	    override_insert_new_record 'a' '1.0slind0' 'stable'  'i386' 'data'
-	    override_insert_new_record 'a' '1.0slind0' 'stable'  ''     'data-new'
-	    override_insert_new_record 'a' '1.0slind0' 'testing' ''     'data'
-	    override_insert_new_record 'a' '1.0slind0' 'testing' 'ppc'  'data'
-	    override_insert_new_record 'a' '1.0slind0' 'stable'  'arm'  'data'
-	    override_insert_new_record 'a' '1.0slind2' 'stable'  'ppc'  'data'
-	    override_insert_new_record 'a' '1.0slind2' 'stable'  'mips' 'data'
-	    override_insert_new_record 'b' '1.0slind2' 'stable'  'ppc'  'data'
+		override_insert_new_record 'a' '1.0slind0' 'stable'  'i386' 'data'
+		override_insert_new_record 'a' '1.0slind0' 'stable'  ''     'data-new'
+		override_insert_new_record 'a' '1.0slind0' 'testing' ''     'data'
+		override_insert_new_record 'a' '1.0slind0' 'testing' 'ppc'  'data'
+		override_insert_new_record 'a' '1.0slind0' 'stable'  'arm'  'data'
+		override_insert_new_record 'a' '1.0slind2' 'stable'  'ppc'  'data'
+		override_insert_new_record 'a' '1.0slind2' 'stable'  'mips' 'data'
 
-	    override_insert_new_record 'c' '1.0slind0' 'stable'  ''     'data-all'
-	    override_insert_new_record 'c' '1.0slind1' 'stable'  'i386' 'data-i386'
-	    override_insert_new_record 'c' '1.0slind1' 'stable'  'ppc'  'data-ppc'
-	    override_insert_new_record 'c' '1.0slind1' 'stable'  'arm'  'data-arm'
-	    override_insert_new_record 'c' '1.0slind1' 'stable'  'sh4'  'data-sh4'
-	    override_insert_new_record 'c' '1.0slind1' 'stable'  'mips' 'data-mips'
+		override_insert_new_record 'b' '1.0slind2' 'stable'  'ppc'  'data'
 
-	    override_insert_new_record 'd' '1.0slind0' 'stable'  ''     'data-all'
-	    override_insert_new_record 'd' '1.0slind1' 'stable'  ''     'data-all'
+		override_insert_new_record 'c' '1.0slind0' 'stable'  ''     'data-all'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'i386' 'data-i386'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'ppc'  'data-ppc'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'arm'  'data-arm'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'sh4'  'data-sh4'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'mips' 'data-mips'
 
-	    echo "test_database: OK"
+		override_insert_new_record 'd' '1.0slind0' 'stable'  ''     'data-all'
+		override_insert_new_record 'd' '1.0slind1' 'stable'  ''     'data-all'
+
+		echo "test_database: OK"
 	fi
 }
+
 test_pkg() {
-	echo "Creating 2 empty packages in ${test_PKGDIR}"
-	rm -Rf "${test_PKGDIR}"
-	mkdir -p "${test_PKGDIR}/a/debian/a" "${test_PKGDIR}/b/debian/b"
-	cat >${test_PKGDIR}/a/debian/control <<EOF
-Source: a
-Section: core
-Priority: optional
-Maintainer: Nobody <nobody@localhost>
-
-Package: a
-Architecture: any
-Description: test package
-  test package
-EOF
-	cat >${test_PKGDIR}/a/debian/changelog <<EOF
-a (1.0slind3) unstable; urgency=low
-
-  * test
-
- -- Nobody <nobody@localhost>  Wed, 23 May 2007 14:28:33 +0400
-EOF
-	cat >${test_PKGDIR}/b/debian/control <<EOF
-Source: b
-Section: core
-Priority: optional
-Maintainer: Nobody <nobody@localhost>
-
-Package: b
-Architecture: any
-Description: test package
-  test package
-EOF
-	cat >${test_PKGDIR}/b/debian/changelog <<EOF
-b (1.0slind3) unstable; urgency=low
-
-  * test
-
- -- Nobody <nobody@localhost>  Wed, 23 May 2007 14:28:33 +0400
-EOF
-	echo -e "#!/bin/sh\ndh_gencontrol\ndh_builddeb" | tee ${test_PKGDIR}/b/debian/rules > ${test_PKGDIR}/a/debian/rules
-	echo "Hello, World!" | tee ${test_PKGDIR}/b/debian/b/README > ${test_PKGDIR}/a/debian/a/README
-	echo 4 | tee ${test_PKGDIR}/{a,b}/debian/compat >/dev/null
-	chmod +x ${test_PKGDIR}/*/debian/rules
-	(cd ${test_PKGDIR}/a && dpkg-buildpackage -rfakeroot)
-	(cd ${test_PKGDIR}/b && dpkg-buildpackage -rfakeroot)
+	create_deb_package a 1.0slind0
+	create_deb_package a 1.0slind2
+	create_deb_package a 1.0slind3
+	create_deb_package b 1.0slind3
+	create_deb_package c 1.0slind0
 }
+
 test_deb() {
     for f in ${test_PKGDIR}/*.deb; do
 	if [ -n "`get_deb_header $f Nonexisting`" ]; then
@@ -134,11 +139,6 @@ test_dsc() {
 	fi
     done
     echo "test_dsc: OK"
-}
-test_override() {
-  echo $ARCHES
-  overrides_get_indep_deb_arches "a" "1.0slind0" "stable"
-  get_deb_distpath 
 }
 
 test_override_get_pkg_arches_list() {
@@ -307,15 +307,69 @@ test_override_try_add_package() {
 	echo "test_override_try_add_package: OK"
 }
 
+test_get_deb_pathlist() {
+	local _result
+
+	_result=`get_deb_pathlist pool "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
+	if [ -n "$_result" ]; then
+		echo "test_get_deb_pathlist: FAIL(1)"
+		return
+	fi
+
+	_result=`get_deb_pathlist pool "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
+	if [ -n "$_result" ]; then
+		echo "test_get_deb_pathlist: FAIL(2)"
+		return
+	fi
+
+	_result=`get_deb_pathlist pool "${test_PKGDIR}/a_1.0slind0_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "pool/core/a/a/stable" ]; then
+		echo "test_get_deb_pathlist: FAIL(3)"
+		return
+	fi
+
+	_result=`get_deb_pathlist pool "${test_PKGDIR}/a_1.0slind2_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "pool/core/a/a/stable" ]; then
+		echo "test_get_deb_pathlist: FAIL(4)"
+		return
+	fi
+
+	_result=`get_deb_pathlist index "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
+	if [ -n "$_result" ]; then
+		echo "test_get_deb_pathlist: FAIL(5)"
+		return
+	fi
+
+	_result=`get_deb_pathlist index "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
+	if [ -n "$_result" ]; then
+		echo "test_get_deb_pathlist: FAIL(6)"
+		return
+	fi
+
+	_result=`get_deb_pathlist index "${test_PKGDIR}/a_1.0slind0_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "stable/core/binary-arm stable/core/binary-i386 stable/core/binary-sh4" ]; then
+		echo "test_get_deb_pathlist: FAIL(7)"
+		return
+	fi
+
+	_result=`get_deb_pathlist index "${test_PKGDIR}/a_1.0slind2_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "stable/core/binary-mips stable/core/binary-ppc" ]; then
+		echo "test_get_deb_pathlist: FAIL(8)"
+		return
+	fi
+
+	echo "test_get_deb_pathlist: OK"
+}
+
 test_database
-test_override_get_pkg_arches_list
-test_override_get_pkg_components_list
-test_override_try_add_package
 test_pkg
 test_deb
 test_dsc
+test_override_get_pkg_arches_list
+test_override_get_pkg_components_list
+test_override_try_add_package
+test_get_deb_pathlist
 override_insert_new_record 'b' '1.0slind3' 'stable' 'i386' 'data'
 for f in $test_PKGDIR/*.deb;do
     override_insert_deb_info $f "stable" "i386"
 done
-

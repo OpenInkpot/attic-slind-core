@@ -443,13 +443,8 @@ get_deb_header() {
 	local _debfile="$1"
 	local _hdr="$2"
 
-	local _value=`ar p $_debfile control.tar.gz | tar zxO ./control | \
-		grep "^${_hdr}: " | cut -d' ' -f2`
-	if [ "$_hdr" = "Version" ]; then
-		_value=`echo $_value | sed -e 's,^[^:]*:,,'`
-	fi
-
-	echo "$_value"
+	ar p $_debfile control.tar.gz | tar zxO ./control | \
+		grep "^${_hdr}: " | cut -d' ' -f2
 }
 
 # get a placement of given deb in pool or related Package index

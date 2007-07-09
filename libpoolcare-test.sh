@@ -1,4 +1,4 @@
-#!/bin/sh -x
+#!/bin/sh
 test_PKGDIR="/tmp/pkg"
 test_REPODIR="/tmp/repo"
 test_POOLDIR="/tmp/pool"
@@ -77,6 +77,7 @@ test_database() {
 		override_insert_new_record 'd' '1.0slind1' 'stable'  ''     'data-all'
 		override_insert_new_record 'd' '1.0slind0' 'stable'  'arm'  'data-all'
 		override_insert_new_record 'd' '1.0slind1' 'stable'  'arm'  'data-all'
+		override_insert_new_record 'e' '1:2.3.slind12' 'stable'  'arm'  'data-all'
 
 		echo "test_database: OK"
 	fi
@@ -88,6 +89,7 @@ test_pkg() {
 	create_deb_package a 1.0slind3
 	create_deb_package b 1.0slind3
 	create_deb_package c 1.0slind0
+	create_deb_package e '1:2.3.slind12'
 }
 
 test_deb() {
@@ -319,6 +321,12 @@ test_override_get_pkg_components_list() {
 		echo "test_override_get_pkg_components_list: FAIL(11)"
 		return
 	fi
+
+	_components=`override_get_pkg_components_list 'e' '1:2.3.slind12' 'stable'`
+	if [ -n "$_components" ]; then
+		echo "test_override_get_pkg_components_list: FAIL(12)"
+		return
+	fi
 	
 	echo "test_override_get_pkg_components_list: OK"
 }
@@ -426,6 +434,12 @@ test_get_deb_pathlist() {
 		return
 	fi
 
+	_result=`get_deb_pathlist index "${test_PKGDIR}/e_2.3.slind12_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "stable/core/binary-arm" ]; then
+		echo "test_get_deb_pathlist: FAIL(9)"
+		return
+	fi
+
 	echo "test_get_deb_pathlist: OK"
 }
 
@@ -444,4 +458,4 @@ for f in $test_PKGDIR/*.deb;do
     override_insert_deb_info $f "stable" "i386"
 done
 
-get_Packages_by_suite 'stable' 'i386'
+#get_Packages_by_suite 'stable' 'i386'

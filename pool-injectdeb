@@ -45,6 +45,7 @@ for dir in $DEBPATH_LIST; do
 	echo "Copying to $dir"
 	mkdir -p "$dir"
 	cp "$DEBNAME" "$dir"
+	override_insert_deb_info $DEBNAME $SUITE
 done
 [ -z "$DEBPATH_LIST" ] || rm -f $DEBNAME
 

@@ -232,7 +232,7 @@ override_insert_deb_info() {
 	local _debname=`get_deb_header $_deb Package`
 	local _debsize=`du -sb $_deb | cut -f1`
 	local _md5sum=`md5sum $_deb | cut -d' ' -f1`
-	local _debcontrol=`ar p $_deb control.tar.gz | tar zxO ./control | egrep -v 'Source|Version|Package|Section|Architecture'`
+	local _debcontrol=`ar p $_deb control.tar.gz | tar zxO ./control | egrep -v '^Source:|^Version:|^Package:|^Section:|^Architecture:'`
 	if [ -z "$_source" ]; then
 		_source=$_debname
 	fi
@@ -246,13 +246,27 @@ override_insert_deb_info() {
 	if [ -z "$_section" ]; then
 	    _section=$_ov_section
 	fi
-	$SQLCMD "INSERT INTO binary_cache(pkgname, version, suite,
+	local archlist
+	if [ -z "$_arch" ]; then
+		archlist=`$SQLCMD "SELECT arch from overrides WHERE pkgname='$_source',
+								  version='$_version',
+								  suite='$_suite'"`
+	else
+		archlist="$_arch"
+	fi
+	if [ -z "$archlist" ]; then
+		yell "ERROR: No source package $_source $_version $_suite"
+		return
+	local arch
+	for arch in $archlist; do
+		$SQLCMD "INSERT INTO binary_cache(pkgname, version, suite,
 					  arch, deb_name, deb_arch,
 					  deb_size, deb_md5sum,
 					  deb_control, deb_section)
 					  VALUES('$_source','$_version',
-					         '$_suite','$_arch','$_debname','$_debarch',
+					         '$_suite','$arch','$_debname','$_debarch',
 						 '$_debsize','$_md5sum', '$_debcontrol', '$_section')"
+	done
 }
 
 # match source package against overrides db

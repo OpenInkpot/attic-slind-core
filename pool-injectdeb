@@ -46,4 +46,5 @@ for dir in $DEBPATH_LIST; do
 	mkdir -p "$dir"
 	cp "$DEBNAME" "$dir"
 done
-rm -f $DEBNAME
+[ -z "$DEBPATH_LIST" ] || rm -f $DEBNAME
+

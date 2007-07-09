@@ -15,6 +15,14 @@ else
 	exit 1
 fi
 
+REPORTFILE=/tmp/slindjob_maillog
+if [ ! -f /usr/lib/slind-core/logging.sh ]; then
+	echo "Can't open logging library"
+	exit 1
+else
+	. /usr/lib/slind-core/logging.sh
+fi
+
 # Update all local packages' repos and build source packages
 update_all()
 {
@@ -22,18 +30,18 @@ update_all()
 		echo "============================================="
 		echo "# Updating local repository for $pkg"
 		echo "============================================="
-		grasp update "$pkg" 2>&1 | tee -a "$LOGFILE"
+		logcmd "grasp update $pkg"
 		echo
 
 		echo "============================================="
 		echo "# Building source package for $pkg"
 		echo "============================================="
-		grasp build "$pkg" 2>&1 | tee -a "$LOGFILE"
+		logcmd "grasp build $pkg"
 		echo
 	done
 }
 
 : > "$LOGFILE"
 update_all
-poolcare
+logcmd poolcare "updating repository indices"
 

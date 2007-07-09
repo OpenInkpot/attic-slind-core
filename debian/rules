@@ -39,6 +39,7 @@ binary-arch: install
 	cp slind-config $(dir_slind-core)/etc/slind
 	cp libpoolcare.sh $(dir_slind-core)/usr/lib/slind-core
 	cp slind-host-tools-bootstrap $(dir_slind-core)/usr/lib/slind-core
+	cp logging.sh $(dir_slind-core)/usr/lib/slind-core
 
 	# slind-maintainer-core
 	mkdir -p $(dir_slind-maintainer-core)/usr/bin

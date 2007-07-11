@@ -1,7 +1,7 @@
 #!/bin/sh
 
 SLINDJOB_CONFIG=~/.slindjob-config
-SLIND_CONFIG=~/.slindjob-config
+SLIND_CONFIG=~/.slind-config
 if [ ! -f "$SLINDJOB_CONFIG" ]; then
 	echo -n "Configuration file $SLINDJOB_CONFIG not found, "
 	echo "creating one for you"
@@ -50,15 +50,17 @@ update_all()
 }
 
 : > "$LOGFILE"
+logstart "$REPORTFILE"
 update_all
 logcmd poolcare "updating repository indices"
 logcmd "slind-host-tools-bootstrap --chroot-build" "rebuilding host-tools"
 for ARCH in $ARCHES; do
-	logcmd "mktpkg $ARCH $SUITE" "building $ARCH cross-toolchain"
+	logcmd "$CHROOTENV mktpkg $ARCH $SUITE" "building $ARCH cross-toolchain"
 	if [ "$LASTSTATUS" = "0" ]; then
 		for pkg in `ls /tmp/tpkg/*.deb`; do
 			logcmd "pool-injectdeb $pkg $SUITE" "moving `basename $pkg` to repository"
 		done
 	fi
 done
+logend "$REPORTFILE"
 

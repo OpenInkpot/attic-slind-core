@@ -33,9 +33,41 @@ logcmd()
 	( $_cmd 2>&1;                    \
 		if [ "$?" = "0" ]; then  \
 			logmsg "OK";     \
+			exit 1;          \
 		else                     \
 			logmsg "FAILED"; \
 		fi                       \
 	) | tee -a "$LOGFILE"
+
+	LASTSTATUS="$?"
+}
+
+logstart()
+{
+	local _logfile="$1"
+	local _msg="$2"
+
+	if [ -z "$_msg" ]; then
+		_msg="Logging started at "
+	fi
+
+	REPORTFILE="$_logfile"
+
+	echo -n "$_msg" > "$REPORTFILE"
+	env LC_ALL=C date >> "$REPORTFILE"
+	echo "----------" >> "$REPORTFILE"
+}
+
+logend()
+{
+	local _msg="$2"
+
+	if [ -z "$_msg" ]; then
+		_msg="Logging finished at "
+	fi
+
+	echo "----------" >> "$REPORTFILE"
+	echo -n "$_msg" >> "$REPORTFILE"
+	env LC_ALL=C date >> "$REPORTFILE"
 }
 

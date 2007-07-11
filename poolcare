@@ -3,7 +3,6 @@
 SUITES="clydesdale percheron attic"
 DEVSUITE="clydesdale"
 COMPONENTS="broken host-tools core gui security debug"
-ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 sh4a uclibc-sh4a"
 
 SLIND_CONFIG=~/.slind-config
 if [ -f $SLIND_CONFIG ]; then
@@ -12,6 +11,7 @@ else
 	echo "Can't open $SLIND_CONFIG"
 	exit 1
 fi
+ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 sh4a uclibc-sh4a"
 REPODIR="$GRASP_REPO"
 [ -n "$REPODIR" ] || REPODIR="$HOME/grasp-out"
 

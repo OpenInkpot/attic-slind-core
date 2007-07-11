@@ -257,6 +257,8 @@ override_insert_deb_info() {
 	if [ -z "$archlist" ]; then
 		yell "ERROR: No source package $_source $_version $_suite"
 		return
+	fi
+
 	local arch
 	for arch in $archlist; do
 		$SQLCMD "INSERT INTO binary_cache(pkgname, version, suite,

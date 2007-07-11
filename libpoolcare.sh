@@ -248,9 +248,10 @@ override_insert_deb_info() {
 	fi
 	local archlist
 	if [ -z "$_arch" ]; then
-		archlist=`$SQLCMD "SELECT arch from overrides WHERE pkgname='$_source',
-								  version='$_version',
-								  suite='$_suite'"`
+		archlist=`$SQLCMD "SELECT arch from overrides
+				    WHERE pkgname='$_source'
+				      AND version='$_version'
+				      AND suite='$_suite'"`
 	else
 		archlist="$_arch"
 	fi

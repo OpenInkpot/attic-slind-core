@@ -45,7 +45,9 @@ for dir in $DEBPATH_LIST; do
 	echo "Copying to $dir"
 	mkdir -p "$dir"
 	cp "$DEBNAME" "$dir"
-	override_insert_deb_info $DEBNAME $SUITE
+	# he who writes utter crap like this function shall be punished into
+	# having to thrice-test every patch before submission
+	# override_insert_deb_info $DEBNAME $SUITE
 done
 [ -z "$DEBPATH_LIST" ] || rm -f $DEBNAME
 

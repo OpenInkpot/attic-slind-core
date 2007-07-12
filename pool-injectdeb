@@ -11,7 +11,7 @@ else
 	echo "Can't open $SLIND_CONFIG"
 	exit 1
 fi
-ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4"
+ARCHES="arm powerpc i386 mips mipsel sh4 sh4a uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 uclibc-sh4a"
 
 if [ -z "$REPODIR" ]; then
 	echo "REPODIR variable is not set in your $SLIND_CONFIG,"

@@ -9,3 +9,11 @@ freetype
 sysklogd
 sysvinit
 ifupdown
+glib2.0
+gettext
+joe
+dropbear
+openssl
+openssh
+cron
+logrotate

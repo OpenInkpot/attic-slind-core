@@ -62,5 +62,15 @@ for ARCH in $ARCHES; do
 		done
 	fi
 done
+
+for ARCH in $ARCHES; do
+	logcmd "$CHROOTENV nc update --arch $ARCH --path $REPODIR" "updating $ARCH indices"
+	if [ "$LASTSTATUS" = "0" ]; then
+		cat $PKGLIST_DIR/all.pkglist | while read pkg; do
+			logcmd "$CHROOTENV nc build $pkg --arch $ARCH --path $REPODIR" \
+				"building $pkg for $ARCH"
+		done
+	fi
+done
 logend "$REPORTFILE"
 

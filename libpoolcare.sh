@@ -2,9 +2,10 @@
 # pools, packages, indices, overrides and whatnot.
 
 # Before sourcing this file, make sure you have set:
-# * REPODIR  -- root of your package repository
-# * DEVSUITE -- name of 'CURRENT' suite, e.g. 'clydesdale'
-# * ARCHES   -- list of supported architectures
+# * REPODIR    -- root of your package repository
+# * DEVSUITE   -- name of 'CURRENT' suite, e.g. 'clydesdale'
+# * ARCHES     -- list of supported architectures
+# * COMPONENTS -- list of available components
 
 DISTSDIR="$REPODIR/dists"
 POOLDIR="$REPODIR/pool"
@@ -26,14 +27,14 @@ mkoverrides() {
 		pkgname varchar NOT NULL,
 		version varchar NOT NULL,
 		suite char(24) NOT NULL,
-		arch char(32) NOT NULL,
+		index_arch char(32) NOT NULL,
 		deb_name varchar NOT NULL,
 		deb_arch varchar NOT NULL,
 		deb_size int NOT NULL,
 		deb_md5sum char(32) NOT NULL,
 		deb_control text NOT NULL,
 		deb_section varchar NOT NULL,
-		UNIQUE (pkgname, version, suite, arch, deb_name, deb_arch));
+		UNIQUE (pkgname, version, suite, index_arch, deb_name, deb_arch));
 		"
 }
 
@@ -44,22 +45,59 @@ yell() {
 	echo $2 "$1" >&2
 }
 
-translate_section() {
-	local _comp="$1"
-	local _source="$2"
-	case "$_comp" in
-		devel|libdevel)
-			echo "host-tools"
-			yell "WARNING: section $_comp in package $_source"
-			;;
-		libs)
-			echo "core"
-			yell "WARNING: section $_comp in package $_source"
-			;;
-		*)
-			echo "$_comp"
-			;;
-	esac
+# check the suite for errors
+# $1 -- suite name
+override_check_suite() {
+	local _suite="$1"
+
+	$SQLCMD "SELECT pkgname || ' ' || version || ' ' || component || ' ' || arch FROM overrides
+			WHERE suite='$_suite'" | \
+	gawk	-v suite="$_suite"		 \
+		-v all_comps_list="$COMPONENTS"	 \
+		-v all_arches_list="$ARCHES"	 \
+	'BEGIN{
+		tmp_count = split(all_arches_list, tmp);
+		for(i = 1; i <= tmp_count; i++) all_arch[tmp[i]] = ""; 
+		tmp_count = split(all_comps_list, tmp);
+		for(i = 1; i <= tmp_count; i++) all_comp[tmp[i]] = ""; 
+	}
+	function ERROR(msg){
+		printf("ERROR: %s\n", msg) >"/dev/stderr";
+		error = 1;
+	}
+	function WARNING(msg){
+		printf("WARNING: %s\n", msg) >"/dev/stderr";
+	}
+	{
+		pkgname = $1;
+		version = $2;
+		component = $3;
+		arch = (NF == 4) ? $4 : "all";
+		mask = (NF == 4) ?  2 :   1;
+
+		if (!(component in all_comp))
+			WARNING("Unknown component in record (" pkgname ", " version ", " arch ", " component ") for suite " suite);
+		if (!((arch == "all") || (arch in all_arch)))
+			WARNING("Unknown arch in record (" pkgname ", " version ", " arch ", " component ") for suite " suite);
+
+		arch_count["pkgname:" pkgname ", arch:" arch]++;
+		version_count["pkgname:" pkgname ", version:" version] = \
+			or(version_count["pkgname:" pkgname ", version:" version], mask);
+		if (component != comp[pkgname]){
+			comp[pkgname] = component; 
+			comp_count[pkgname]++;
+		}
+	}
+	END{
+		for(idx in arch_count) if (arch_count[idx] > 1)
+			ERROR("More than one (" idx ") records found in suite " suite);
+		for(idx in comp_count) if (comp_count[idx] > 1)
+			ERROR("Several different components defined for package " idx " in suite " suite);
+		for(idx in version_count) if (version_count[idx] == 3)
+			WARNING("Some arch records override ALL record for (" idx ") in suite " suite);
+		print error ? "FAIL" : "OK";
+		exit(error);
+	}'
 }
 
 # get most recent package version from overrides.db
@@ -71,39 +109,37 @@ override_get_pkg_version() {
 	local _suite="$2"
 	local _arch="$3"
 
-	local _version=`$SQLCMD "SELECT version || ' ' || arch FROM overrides
+	$SQLCMD "SELECT version FROM overrides
 			WHERE pkgname='$_source'
 			AND suite='$_suite'
-			AND (arch='$_arch' OR arch='')" | \
-	gawk	-v pkgname="$_source"		\
-		-v suite="$_suite"		\
-	'function ERROR(arch){
-		printf("ERROR: More than one arch=%s record found for package \"%s\" in suite \"%s\"\n",
-			arch, pkgname, suite) >"/dev/stderr";
-		fatal_error=1;
-	}
-	(NF == 2){
-		arch=$2;
-		arch_records++;
-		arch_version=$1
-	}
-	(NF == 1){
-		all_records++;
-		all_version=$1;
-	}
-	END{
-		if (all_records > 1) ERROR("all");
-		if (arch_records > 1) ERROR(arch);
-		if (fatal_error) exit(1);
-		if (arch_records > 0) print arch_version;
-		else if (all_records > 0) print all_version;
-	}'`
-	if [ -z "$_version" ]; then
-		yell "Can't find $_source version in overrides.db"
-		exit 1
-	fi
+			AND (arch='$_arch' OR arch='')
+			ORDER BY arch DESC LIMIT 1"
+}
 
-	echo "$_version"
+#get a package component from overrides.db
+# $1 -- source package name of .deb file
+# $2 -- package suite name
+override_get_pkg_component() {
+	local _source="$1"
+	local _suite="$2"
+
+	$SQLCMD "SELECT component FROM overrides
+			WHERE pkgname='$_source'
+			AND suite='$_suite'
+			LIMIT 1"
+}
+
+# match source package against overrides db
+# $1 -- source package name
+# $2 -- package version
+# returns a list of 'suite/component' path component
+override_get_src_poolpath_list() {
+	local _source="$1"
+	local _version="$2"
+
+	$SQLCMD "SELECT DISTINCT '$DISTSDIR/' || suite || '/' || component || '/source' FROM overrides
+			WHERE pkgname='$_source'
+			AND version='$_version'"
 }
 
 #get a list of available arches for packages
@@ -124,165 +160,20 @@ override_get_pkg_arches_list() {
 		-v suite="$_suite"		\
 		-v all_arches_list="$ARCHES"	\
 	'BEGIN{
-		cnt = split(all_arches_list, tmp);
-		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "0";
+		all_arch_cnt = split(all_arches_list, all_arch);
 	}
-	function ERROR(arch){
-		printf("ERROR: More than one arch=%s record found for package \"%s\" in suite \"%s\"\n",
-			arch, pkgname, suite) >"/dev/stderr";
-		fatal_error=1;
-	}
-	($1 == req_version){
-		if (NF == 2){
-			all_arches[$2]++;
-			and_arches[$2] = "yes";
+	{
+		if ($1 == req_version){
+			if (NF == 2) and_arches[$2] = "yes";
+			else for(i = 1; i <= all_arch_cnt; i++) and_arches[all_arch[i]] = "yes";
 		}else{
-			all_records++;
-			for(arch in all_arches) and_arches[arch] = "yes";
+			if (NF == 2) not_arches[$2] = "yes";
 		}
 	}
-	($1 != req_version){
-		if (NF == 2){
-			all_arches[$2]++;
-			not_arches[$2] = "yes";
-		}else all_records++;
-	}
 	END{
-		if (all_records > 1) ERROR("all");
-		for(arch in all_arches)
-		    if (all_arches[arch] > 1) ERROR(arch);
-		if (fatal_error) exit(1);
 		for(arch in and_arches)
 			if (!(arch in not_arches)) print(arch);
 	}'
-}
-
-#get a list of components for .deb package from overrides.db
-# $1 -- source package name of .deb file
-# $2 -- package version
-# $3 -- package suite name
-# $4 -- arch name (optional)
-override_get_pkg_components_list() {
-	local _source="$1"
-	local _version="$2"
-	local _suite="$3"
-	local _arch="$4"
-
-	if [ "$_arch" = "" ]; then
-		_arch="all"
-	fi
-
-	$SQLCMD "SELECT DISTINCT version || ' ' || component || ' ' || arch FROM overrides
-			WHERE pkgname='$_source'
-			AND suite='$_suite'
-			ORDER BY version" | \
-	gawk	-v pkgname="$_source"		\
-		-v req_version="$_version"	\
-		-v suite="$_suite"		\
-		-v req_arch="$_arch"		\
-		-v all_arches_list="$ARCHES"	\
-	'BEGIN{
-		cnt = split(all_arches_list, tmp);
-		for(i = 1; i <= cnt; i++) all_arches[tmp[i]] = "0";
-	}
-	function ERROR(arch){
-		printf("ERROR: More than one arch=%s record found for package \"%s\" in suite \"%s\"\n",
-			arch, pkgname, suite) >"/dev/stderr";
-		fatal_error=1;
-	}
-	($1 == req_version){
-		if (NF == 3){
-			all_arches[$3]++;
-			and_arches[$3] = "yes";
-			component[$3] = $2;
-		}else{
-			all_records++;
-			for(arch in all_arches){
-				and_arches[arch] = "yes";
-				component[arch] = $2;
-			}
-		}
-	}
-	($1 != req_version){
-		if (NF == 3){
-			all_arches[$3]++;
-			not_arches[$3] = "yes";
-		}else all_records++;
-	}
-	END{
-		if (all_records > 1) ERROR("all");
-		for(arch in all_arches)
-		    if (all_arches[arch] > 1) ERROR(arch);
-		if (fatal_error) exit(1);
-		for(arch in and_arches){
-			if (arch in not_arches) continue;
-			if ((req_arch == "all") || (req_arch == arch))
-				result[component[arch]] = "";
-		}
-		for(comp in result) print(comp);
-	}'
-}
-
-override_insert_deb_info() {
-	local _deb="$1"
-	local _suite="$2"
-	local _arch="$3"
-	local _source=`get_deb_header $_deb Source`
-	local _version=`get_deb_header $_deb Version`
-	local _debname=`get_deb_header $_deb Package`
-	local _debsize=`du -sb $_deb | cut -f1`
-	local _md5sum=`md5sum $_deb | cut -d' ' -f1`
-	local _debcontrol=`ar p $_deb control.tar.gz | tar zxO ./control | egrep -v '^Source:|^Version:|^Package:|^Section:|^Architecture:'`
-	if [ -z "$_source" ]; then
-		_source=$_debname
-	fi
-	local _ov_section=`override_get_pkg_components_list $_source $_version $_suite $_debarch`
-	if [ -z "$_ov_section" ]; then
-		yell "ERROR: Stale binary .deb $_deb, no source for $_source $_version $_suite $_debarch"
-		return
-	fi
-	local _debarch=`get_deb_header $_deb Architecture`
-	local _section=`get_deb_header $_deb Section`
-	if [ -z "$_section" ]; then
-	    _section=$_ov_section
-	fi
-	local archlist
-	if [ -z "$_arch" ]; then
-		archlist=`$SQLCMD "SELECT arch from overrides
-				    WHERE pkgname='$_source'
-				      AND version='$_version'
-				      AND suite='$_suite'"`
-	else
-		archlist="$_arch"
-	fi
-	if [ -z "$archlist" ]; then
-		yell "ERROR: No source package $_source $_version $_suite"
-		return
-	fi
-
-	local arch
-	for arch in $archlist; do
-		$SQLCMD "INSERT INTO binary_cache(pkgname, version, suite,
-					  arch, deb_name, deb_arch,
-					  deb_size, deb_md5sum,
-					  deb_control, deb_section)
-					  VALUES('$_source','$_version',
-					         '$_suite','$arch','$_debname','$_debarch',
-						 '$_debsize','$_md5sum', '$_debcontrol', '$_section')"
-	done
-}
-
-# match source package against overrides db
-# $1 -- source package name of
-# $2 -- package version
-# returns a list of 'suite/component' path component
-override_get_src_poolpath_list() {
-	local _source="$1"
-	local _version="$2"
-
-	$SQLCMD "SELECT DISTINCT suite || '/' || component FROM overrides
-			WHERE pkgname='$_source'
-			AND version='$_version'"
 }
 
 # add new record to overrides db
@@ -322,11 +213,15 @@ override_replace_suite(){
 	local _new_suite="$4"
 
 	yell "# change suite for $_source=$_version from suite='$_suite' to suite=$_new_suite in overrides"
-	$SQLCMD "UPDATE overrides SET suite='$_new_suite'
+	$SQLCMD "UPDATE OR REPLACE overrides SET suite='$_new_suite'
 			WHERE pkgname='$_source'
 			AND version='$_version'
 			AND suite='$_suite';
-		 UPDATE binary_cache SET suite='$_new_suite'
+		 DELETE FROM overrides
+			WHERE pkgname='$_source'
+			AND version='$_version'
+			AND suite='$_suite';
+		 DELETE FROM binary_cache
 			WHERE pkgname='$_source'
 			AND version='$_version'
 			AND suite='$_suite'"
@@ -343,9 +238,9 @@ override_try_add_package(){
 	local _version="$2"
 	local _suite="$3"
 	local _component="$4"
+	local _tmp_version
 	local _version_count=0
 	local _count=0
-	local _found=0
 	local _ver
 	local _arch
 	local _comp
@@ -359,62 +254,47 @@ override_try_add_package(){
 			AND suite='$_suite'" \
 	| (
 		while read _ver[$_count] _comp[$_count] _arch[$_count]; do
+			# exit, if required version already exist
+			if [ "$_version" = "${_ver[$_count]}" ]; then
+				echo "OK"
+				exit
+			fi
+
+			# collect a number of different versions of package
+			if [ "$_tmp_version" != "${_ver[$_count]}" ]; then
+				_tmp_version="${_ver[$_count]}"
+				_version_count=$((_version_count+1))
+			fi
+
 			_count=$((_count+1))
 		done
 
-
-		# get a number of different versions of package
-		for((_i=0;_i<_count;_i++)); do
-			_version_count=1
-			if [ "${_ver[0]}" != "${_ver[$_i]}" ]; then
-				_version_count=2
-				break
-			fi
-		done
-
-		if [ "$_version_count" -gt 1 ]; then
-			# check the list for existance of required package version
-			for((_i=0;_i<_count;_i++)); do
-				if [ "$_version" = "${_ver[$_i]}" ]; then
-					# the package is the same, just set a _found flag
-					_found=1
-				fi
-			done
-
-			if [ "$_found" -eq 0 ]; then
-				# too many record for package, resolve this situation manually
-				yell "WARNING: too many suitable records, can't update overrides for source package $_source=$_version"
-				echo "FAIL"
-			else
+		case "$_version_count" in
+			0)	# the package is new, add it to required suite for all arches.
+				override_insert_new_record $_source $_version $_suite '' $_component
 				echo "OK"
-			fi
-		elif [ "$_version_count" -eq 1 ]; then
-			dpkg --compare-versions "$_version" gt "${_ver[0]}"
-			if [ "$?" = "0" ]; then
-				# the package is newer than current, add it to required 
-				# suite and move older one to "attic"
-				override_replace_suite $_source ${_ver[0]} $_suite "attic"
+				;;
+			1)	# only one version of package exist 
+				dpkg --compare-versions "$_version" gt "${_ver[0]}"
+				if [ "$?" = "0" ]; then
+					# the package is newer than current, move older one to "attic"
+					override_replace_suite $_source ${_ver[0]} $_suite "attic"
+				else
+					# the package is older than current, add it to "attic"
+					_suite="attic"
+				fi
 				for((_i=0;_i<_count;_i++)); do
 					override_insert_new_record $_source $_version $_suite "${_arch[$_i]}" $_component
 				done
-			elif [ "$_version" = "${_ver[0]}" ]; then
-				# the package is the same, do nothing
-				true
-			else
-				# the package is older than current, add it to "attic"
-				for((_i=0;_i<_count;_i++)); do
-					override_insert_new_record $_source $_version "attic" "${_arch[$_i]}" $_component
-				done
-			fi
-			echo "OK"
-		else
-			# the package is new, add it to required suite for all arches.
-			override_insert_new_record $_source $_version $_suite '' $_component
-			echo "OK"
-		fi
+				echo "OK"
+				;;
+			*)	# too many versions of package exist, resolve this situation manually
+				yell "WARNING: too many suitable records, can't update overrides for source package $_source=$_version"
+				echo "FAIL"
+				;;
+		esac
 	)
 }
-
 
 # Produce a 'Sources' entry from .dsc.
 # $1 -- path to .dsc file
@@ -464,55 +344,63 @@ get_deb_header() {
 		grep "^${_hdr}: " | cut -d' ' -f2
 }
 
-# get a placement of given deb in pool or related Package index
-# $1 -- request: "index" or "pool"
+# $1 -- request: "get-index", "get-pool", "bin-db"
 # $2 -- path to .deb file
 # $3 -- suite
-get_deb_pathlist() {
+deb_op() {
 	local _request="$1"
 	local _debfile="$2"
 	local _suite="$3"
-	local _comp
+	local _index_arch
 
-	local _version="`get_deb_header $_debfile Version`"
-	local _arch="`get_deb_header $_debfile Architecture`"
-	local _deb_comp="`get_deb_header $_debfile Section`"
-	local _source="`get_deb_header $_debfile Source`"
+	local _name=`get_deb_header $_debfile Package`
+	local _version=`get_deb_header $_debfile Version`
+	local _section=`get_deb_header $_debfile Section`
+	local _arch=`get_deb_header $_debfile Architecture`
+	local _source=`get_deb_header $_debfile Source`
 	if [ -z "$_source" ]; then
-		_source="`get_deb_header $_debfile Package`"
+		_source="$_name"
 	fi
 
-	local _comp_list=`override_get_pkg_components_list $_source $_version $_suite $_arch`
-	if [ -z "$_comp_list" ]; then
+	local _index_arch_list=`override_get_pkg_arches_list $_source $_version $_suite`
+	if [ -z "$_index_arch_list" ]; then
 		yell "WARNING: package $_debfile does not match override.db"
 		return
 	fi
+	if [ "$_arch" != "all" ]; then
+		_index_arch_list="$_arch"
+	fi
 
-	# if Section field is pesent, use it as a component name  
-	if [ -n "$_deb_comp" ]; then
-		_comp_list="$_deb_comp"
+	if [ -z "$_section" ]; then
+		_section=`override_get_pkg_component $_source $_suite`
 	fi
 
 	case "$_request" in
-		pool)
+		get-pool)
 			local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
-			for _comp in $_comp_list; do
-				echo "pool/$_comp/$_pkgprefix/$_source/$_suite"
+			echo "$POOLDIR/$_section/$_pkgprefix/$_source/$_suite"
+			;;
+		get-index)
+			for _index_arch in $_index_arch_list; do
+				echo "$DISTSDIR/$_suite/$_section/binary-$_index_arch"
 			done
 			;;
-		index)
-			local _arches_list="$_arch"
-			if [ "$_arches_list" = "all" ]; then
-				_arches_list=`override_get_pkg_arches_list $_source $_version $_suite`
-			fi
-			for _comp in $_comp_list; do
-				for _arch in $_arches_list; do
-					echo "$_suite/$_comp/binary-$_arch"
-				done
+		bin-db)
+			local _size=`du -sb $_debfile | cut -f1`
+			local _md5sum=`md5sum $_debfile | cut -d' ' -f1`
+			local _control=`ar p $_debfile control.tar.gz | tar zxO ./control | egrep -v '^Source:|^Version:|^Package:|^Section:|^Architecture:' | sed "s/'/''/g"`
+			
+			for _index_arch in $_index_arch_list; do
+				$SQLCMD "INSERT INTO binary_cache (pkgname, version, suite, index_arch,
+						deb_name, deb_arch, deb_section, 
+						deb_size, deb_md5sum, deb_control)
+						VALUES('$_source', '$_version', '$_suite', '$_index_arch',
+							'$_name', '$_arch', '$_section',
+							'$_size', '$_md5sum', '$_control')"
 			done
 			;;
 		*)
-			yell "ERROR: unknown request to get_deb_pathlist()."
+			yell "ERROR: unknown request to deb_op()."
 			;;
 	esac
 }
@@ -520,14 +408,13 @@ get_deb_pathlist() {
 # output package's information (control) for Packages file
 # $1 -- name to source
 # $2 -- version
-# $3 -- arch for source
-# $4 -- suite
-
+# $3 -- suite
+# $4 -- index_arch
 get_Packages_by_source() {
 	local _pkgname="$1"
 	local _version="$2"
-	local _arch="$3"
-	local _suite="$4"
+	local _suite="$3"
+	local _index_arch="$4"
 	local _SQL="SELECT 'Package: ' || deb_name || '<BR>'
 			||'Source: ' || pkgname || '<BR>'
 	                ||'Version: ' || version || '<BR>'
@@ -538,18 +425,16 @@ get_Packages_by_source() {
 			|| deb_control || '<BR>'
 	            FROM binary_cache WHERE pkgname='$_pkgname'
 				      AND version='$_version'
-				      AND arch='$_arch'
-				      AND suite='$_suite'"
-
+				      AND suite='$_suite'
+				      AND index_arch='$_index_arch'"
 	$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g'
 }
 
 # output package's information (control) for Packages file
-# $1 -- architecture for suite
+# $1 -- _index_arch
 # $2 -- suite
-
 get_Packages_by_suite() {
-	local _arch="$1"
+	local _index_arch="$1"
 	local _suite="$2"
 	local _SQL="SELECT 'Package: ' || deb_name || '<BR>'
 			||'Source: ' || pkgname || '<BR>'
@@ -559,7 +444,7 @@ get_Packages_by_suite() {
 			||'MD5sum: ' || deb_md5sum || '<BR>'
 			||'Section: ' || deb_section || '<BR>'
 			|| deb_control || '<BR>'
-	            FROM binary_cache WHERE suite='$_suite' AND arch='$_arch'"
+	            FROM binary_cache WHERE suite='$_suite' AND index_arch='$_index_arch'"
 	$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g'
 }
 

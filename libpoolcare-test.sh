@@ -5,6 +5,7 @@ test_POOLDIR="/tmp/pool"
 REPODIR=${test_REPODIR}
 DEVSUITE=unstable
 ARCHES="i386 ppc arm sh4 mips"
+COMPONENTS="data data-all"
 . libpoolcare.sh
 
 create_deb_package() {
@@ -56,22 +57,20 @@ test_database() {
 		echo "test_database: FAIL(1)"
 		return
 	else
-		override_insert_new_record 'a' '1.0slind0' 'stable'  'i386' 'data'
-		override_insert_new_record 'a' '1.0slind0' 'stable'  ''     'data-new'
+		override_insert_new_record 'a' '1.0slind0' 'stable'  ''     'data'
 		override_insert_new_record 'a' '1.0slind0' 'testing' ''     'data'
 		override_insert_new_record 'a' '1.0slind0' 'testing' 'ppc'  'data'
-		override_insert_new_record 'a' '1.0slind0' 'stable'  'arm'  'data'
 		override_insert_new_record 'a' '1.0slind2' 'stable'  'ppc'  'data'
 		override_insert_new_record 'a' '1.0slind2' 'stable'  'mips' 'data'
 
 		override_insert_new_record 'b' '1.0slind2' 'stable'  'ppc'  'data'
 
-		override_insert_new_record 'c' '1.0slind0' 'stable'  ''     'data-all'
-		override_insert_new_record 'c' '1.0slind1' 'stable'  'i386' 'data-i386'
-		override_insert_new_record 'c' '1.0slind1' 'stable'  'ppc'  'data-ppc'
-		override_insert_new_record 'c' '1.0slind1' 'stable'  'arm'  'data-arm'
-		override_insert_new_record 'c' '1.0slind1' 'stable'  'sh4'  'data-sh4'
-		override_insert_new_record 'c' '1.0slind1' 'stable'  'mips' 'data-mips'
+		override_insert_new_record 'c' '1.0slind0' 'stable'  ''     'data'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'i386' 'data'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'ppc'  'data'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'arm'  'data'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'sh4'  'data'
+		override_insert_new_record 'c' '1.0slind1' 'stable'  'mips' 'data'
 
 		override_insert_new_record 'd' '1.0slind0' 'stable'  ''     'data-all'
 		override_insert_new_record 'd' '1.0slind1' 'stable'  ''     'data-all'
@@ -190,24 +189,6 @@ test_override_get_pkg_version() {
 		return
 	fi
 
-	_version=`override_get_pkg_version 'd' 'stable'`;
-	if [ -n "$_version" ]; then
-		echo "test_override_get_pkg_version: FAIL(8)"
-		return
-	fi
-
-	_version=`override_get_pkg_version 'd' 'stable' 'arm'`;
-	if [ -n "$_version" ]; then
-		echo "test_override_get_pkg_version: FAIL(9)"
-		return
-	fi
-
-	_version=`override_get_pkg_version 'd' 'stable' 'ppc'`;
-	if [ -n "$_version" ]; then
-		echo "test_override_get_pkg_version: FAIL(10)"
-		return
-	fi
-
 	echo "test_override_get_pkg_version: OK"
 }
 
@@ -244,8 +225,8 @@ test_override_get_pkg_arches_list() {
 		return
 	fi
 
-	_arches=`override_get_pkg_arches_list 'd' '1.0slind0' 'stable'`
-	if [ -n "$_arches" ]; then
+	_arches=`override_get_pkg_arches_list 'e' '1:2.3.slind12' 'stable' | sort | xargs`
+	if [ "$_arches" != "arm" ]; then
 		echo "test_override_get_pkg_arches_list: FAIL(6)"
 		return
 	fi
@@ -253,95 +234,41 @@ test_override_get_pkg_arches_list() {
 	echo "test_override_get_pkg_arches_list: OK"
 }
 
-test_override_get_pkg_components_list() {
-	local _components
+test_override_get_pkg_component() {
+	local _component
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'unknown'`
-	if [ -n "$_components" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(1)"
+	_component=`override_get_pkg_component 'a' 'unknown'`
+	if [ -n "$_component" ]; then
+		echo "test_override_get_pkg_component: FAIL(1)"
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' | sort | xargs`
-	if [ "$_components" != "data data-new" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(2)"
+	_component=`override_get_pkg_component 'a' 'stable'`
+	if [ "$_component" != "data" ]; then
+		echo "test_override_get_pkg_component: FAIL(2)"
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'unknown' 'ppc'`
-	if [ -n "$_components" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(3)"
+	_component=`override_get_pkg_component 'c' 'stable'`
+	if [ "$_component" != "data" ]; then
+		echo "test_override_get_pkg_component: FAIL(3)"
 		return
 	fi
 
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'arm' | sort | xargs`
-	if [ "$_components" != "data" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(4)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'a' '1.0slind0' 'stable' 'sh4' | sort | xargs`
-	if [ "$_components" != "data-new" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(5)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'a' '1.0slind2' 'stable' 'ppc' | sort | xargs`
-	if [ "$_components" != "data" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(6)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'a' '1.0slind2' 'stable' 'arm'`
-	if [ -n "$_components" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(7)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'c' '1.0slind0' 'stable'`
-	if [ -n "$_components" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(8)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' | sort | xargs`
-	if [ "$_components" != "data-arm data-i386 data-mips data-ppc data-sh4" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(9)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'c' '1.0slind1' 'stable' 'ppc' | sort | xargs`
-	if [ "$_components" != "data-ppc" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(10)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'd' '1.0slind0' 'stable'`
-	if [ -n "$_components" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(11)"
-		return
-	fi
-
-	_components=`override_get_pkg_components_list 'e' '1:2.3.slind12' 'stable'`
-	if [ -n "$_components" ]; then
-		echo "test_override_get_pkg_components_list: FAIL(12)"
-		return
-	fi
-	
-	echo "test_override_get_pkg_components_list: OK"
+	echo "test_override_get_pkg_component: OK"
 }
 
 test_override_try_add_package() {
 	local _result
-	local _components
+	local _component
 
 	_result=`override_try_add_package 'gcc' '4.1.2-1' 'clydesdale' 'broken'`
 	if [ "$_result" != OK ]; then
 		echo "test_override_try_add_package: FAIL(1)"
 		return
 	fi
-	_components=`override_get_pkg_components_list 'gcc' '4.1.2-1' 'clydesdale'`
-	if [ "$_components" != "broken" ]; then
+	_component=`override_get_pkg_component 'gcc' 'clydesdale'`
+	if [ "$_component" != "broken" ]; then
 		echo "test_override_try_add_package: FAIL(1a)"
 		return
 	fi
@@ -357,13 +284,13 @@ test_override_try_add_package() {
 		echo "test_override_try_add_package: FAIL(3)"
 		return
 	fi
-	_components=`override_get_pkg_components_list 'gcc' '4.1.2-2' 'clydesdale'`
-	if [ "$_components" != "broken1" ]; then
+	_component=`override_get_pkg_component 'gcc' 'clydesdale'`
+	if [ "$_component" != "broken1" ]; then
 		echo "test_override_try_add_package: FAIL(3a)"
 		return
 	fi
-	_components=`override_get_pkg_components_list 'gcc' '4.1.2-1' 'attic'`
-	if [ "$_components" != "broken" ]; then
+	_component=`override_get_pkg_component 'gcc' 'attic'`
+	if [ "$_component" != "broken" ]; then
 		echo "test_override_try_add_package: FAIL(3b)"
 		return
 	fi
@@ -383,79 +310,80 @@ test_override_try_add_package() {
 	echo "test_override_try_add_package: OK"
 }
 
-test_get_deb_pathlist() {
+test_deb_op() {
 	local _result
 
-	_result=`get_deb_pathlist pool "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
+	_result=`deb_op get-pool "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
 	if [ -n "$_result" ]; then
-		echo "test_get_deb_pathlist: FAIL(1)"
+		echo "test_deb_op: FAIL(1)"
 		return
 	fi
 
-	_result=`get_deb_pathlist pool "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
+	_result=`deb_op get-pool "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
 	if [ -n "$_result" ]; then
-		echo "test_get_deb_pathlist: FAIL(2)"
+		echo "test_deb_op: FAIL(2)"
 		return
 	fi
 
-	_result=`get_deb_pathlist pool "${test_PKGDIR}/a_1.0slind0_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "pool/core/a/a/stable" ]; then
-		echo "test_get_deb_pathlist: FAIL(3)"
+	_result=`deb_op get-pool "${test_PKGDIR}/a_1.0slind0_all.deb" "stable"`
+	if [ "$_result" != "$POOLDIR/core/a/a/stable" ]; then
+		echo "test_deb_op: FAIL(3)"
 		return
 	fi
 
-	_result=`get_deb_pathlist pool "${test_PKGDIR}/a_1.0slind2_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "pool/core/a/a/stable" ]; then
-		echo "test_get_deb_pathlist: FAIL(4)"
+	_result=`deb_op get-pool "${test_PKGDIR}/a_1.0slind2_all.deb" "stable"`
+	if [ "$_result" != "$POOLDIR/core/a/a/stable" ]; then
+		echo "test_deb_op: FAIL(4)"
 		return
 	fi
 
-	_result=`get_deb_pathlist index "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
+	_result=`deb_op get-index "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
 	if [ -n "$_result" ]; then
-		echo "test_get_deb_pathlist: FAIL(5)"
+		echo "test_deb_op: FAIL(5)"
 		return
 	fi
 
-	_result=`get_deb_pathlist index "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
+	_result=`deb_op get-index "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
 	if [ -n "$_result" ]; then
-		echo "test_get_deb_pathlist: FAIL(6)"
+		echo "test_deb_op: FAIL(6)"
 		return
 	fi
 
-	_result=`get_deb_pathlist index "${test_PKGDIR}/a_1.0slind0_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "stable/core/binary-arm stable/core/binary-i386 stable/core/binary-sh4" ]; then
-		echo "test_get_deb_pathlist: FAIL(7)"
+	_result=`deb_op get-index "${test_PKGDIR}/a_1.0slind0_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "$DISTSDIR/stable/core/binary-arm $DISTSDIR/stable/core/binary-i386 $DISTSDIR/stable/core/binary-sh4" ]; then
+		echo "test_deb_op: FAIL(7)"
 		return
 	fi
 
-	_result=`get_deb_pathlist index "${test_PKGDIR}/a_1.0slind2_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "stable/core/binary-mips stable/core/binary-ppc" ]; then
-		echo "test_get_deb_pathlist: FAIL(8)"
+	_result=`deb_op get-index "${test_PKGDIR}/a_1.0slind2_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "$DISTSDIR/stable/core/binary-mips $DISTSDIR/stable/core/binary-ppc" ]; then
+		echo "test_deb_op: FAIL(8)"
 		return
 	fi
 
-	_result=`get_deb_pathlist index "${test_PKGDIR}/e_2.3.slind12_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "stable/core/binary-arm" ]; then
-		echo "test_get_deb_pathlist: FAIL(9)"
+	_result=`deb_op get-index "${test_PKGDIR}/e_2.3.slind12_all.deb" "stable" | sort | xargs`
+	if [ "$_result" != "$DISTSDIR/stable/core/binary-arm" ]; then
+		echo "test_deb_op: FAIL(9)"
 		return
 	fi
 
-	echo "test_get_deb_pathlist: OK"
+	echo "test_deb_op: OK"
 }
 
-
+rm -rf $test_PKGDIR $test_REPODIR $test_POOLDIR
 test_database
+override_check_suite stable
 test_pkg
 test_deb
 test_dsc
 test_override_get_pkg_version
 test_override_get_pkg_arches_list
-test_override_get_pkg_components_list
+test_override_get_pkg_component
 test_override_try_add_package
-test_get_deb_pathlist
+test_deb_op
 override_insert_new_record 'b' '1.0slind3' 'stable' 'i386' 'data'
-for f in $test_PKGDIR/*.deb;do
-    override_insert_deb_info $f "stable" "i386"
+for f in $test_PKGDIR/*.deb; do
+	deb_op "bin-db" $f "stable"
 done
 
 #get_Packages_by_suite 'stable' 'i386'

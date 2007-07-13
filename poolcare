@@ -67,6 +67,7 @@ scan_just_one_dsc() {
 	local _pkgcomp="`grep '^Section: ' $_dscfile | cut -d' ' -f2`"
 
 	[ -n "$_pkgcomp" ] || _pkgcomp='broken'
+	echo $COMPONENTS | egrep "(^| )$_pkgcomp( |\$)" >/dev/null || _pkgcomp='broken'
 
 	# check with overrides db
 	_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
@@ -86,7 +87,7 @@ scan_just_one_dsc() {
 
 	for _path in $_path_list; do
 		# write a source entry to Sources file
-		dsc_to_Sources "$_dscfile" "$DISTSDIR/$_path/source"
+		dsc_to_Sources "$_dscfile" "$_path"
 	done
 }
 
@@ -103,7 +104,8 @@ scan_all_dsc() {
 scan_just_one_deb() {
 	local _debfile="$1"
 	local _suite="$2"
-	local _paths="`get_deb_pathlist index $_debfile $_suite`"
+	local _paths="`deb_op get-index $_debfile $_suite`"
+	local _pkgspath
 	
 	if [ -z "$_paths" ]; then
 		yell "WARNING: no index for package $_debfile in suite=$_suite, ignore this package"
@@ -111,10 +113,8 @@ scan_just_one_deb() {
 	fi
 
 	for _path in $_paths; do
-		_pkgspath="dists/$_path"
-
-		if [ -d "$_pkgspath" ]; then
-			deb_to_Packages "$_debfile" "$_pkgspath"
+		if [ -d "$_path" ]; then
+			deb_to_Packages "$_debfile" "$_path"
 		else
 			yell "WARNING: no index for package $_debfile"
 			yell "This may indicate that the section field is incorrect"
@@ -132,12 +132,19 @@ scan_all_deb() {
 		# dirty hack, will fix later
 		_suite=`dirname $_debfile`
 		_suite=`basename $_suite`
-		
+
 		scan_just_one_deb "$_debfile" "$_suite"
 	done
 	popd > /dev/null
 }
 
+for suite in $SUITES; do
+	result=`override_check_suite $suite`
+	if [ "$result" != "OK" -a "$suite" != "attic" ]; then
+		yell "POOLCARE ERROR: Broken suite '$suite', fix it and try again"
+		exit
+	fi
+done
 prologue
 scan_all_dsc
 scan_all_deb

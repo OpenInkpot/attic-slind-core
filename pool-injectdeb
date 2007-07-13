@@ -39,15 +39,11 @@ if [ -z "$SUITE" ]; then
 	exit 1
 fi
 
-DEBPATH_LIST=`get_deb_pathlist pool $DEBNAME $SUITE`
-for dir in $DEBPATH_LIST; do
+dir=`deb_op get-pool $DEBNAME $SUITE`
+if [ -n "$dir" ]; then
 	dir="$REPODIR/$dir"
-	echo "Copying to $dir"
+	echo "Moving to $dir"
 	mkdir -p "$dir"
-	cp "$DEBNAME" "$dir"
-	# he who writes utter crap like this function shall be punished into
-	# having to thrice-test every patch before submission
-	# override_insert_deb_info $DEBNAME $SUITE
-done
-[ -z "$DEBPATH_LIST" ] || rm -f $DEBNAME
-
+	mv "$DEBNAME" "$dir"
+	deb_op bin-db $dir/`basename $DEBNAME` $SUITE
+fi

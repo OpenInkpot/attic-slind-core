@@ -19,3 +19,4 @@ openssh
 cron
 logrotate
 readline5
+hdparm

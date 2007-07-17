@@ -18,3 +18,4 @@ openssl
 openssh
 cron
 logrotate
+readline5

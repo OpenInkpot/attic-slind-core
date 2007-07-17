@@ -20,3 +20,6 @@ cron
 logrotate
 readline5
 hdparm
+devmapper
+e2fsprogs
+bzip2

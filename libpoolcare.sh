@@ -28,6 +28,7 @@ mkoverrides() {
 		version varchar NOT NULL,
 		suite char(24) NOT NULL,
 		index_arch char(32) NOT NULL,
+		pool_file varchar NOT NULL,
 		deb_name varchar NOT NULL,
 		deb_arch varchar NOT NULL,
 		deb_size int NOT NULL,
@@ -344,15 +345,17 @@ get_deb_header() {
 		grep "^${_hdr}: " | cut -d' ' -f2
 }
 
-# $1 -- request: "get-index", "get-pool", "bin-db"
-# $2 -- path to .deb file
-# $3 -- suite
-deb_op() {
-	local _request="$1"
-	local _debfile="$2"
-	local _suite="$3"
+# cache .deb file information and return path to place deb to the pool
+# $1 -- path to .deb file
+# $2 -- suite
+deb_cache() {
+	local _debfile="$1"
+	local _suite="$2"
 	local _index_arch
 
+	local _size=`du -sb $_debfile | cut -f1`
+	local _md5sum=`md5sum $_debfile | cut -d' ' -f1`
+	local _control=`ar p $_debfile control.tar.gz | tar zxO ./control | egrep -v '^Package:|^Version:|^Section:|^Architecture:|^Source:' | sed "s/'/''/g"`
 	local _name=`get_deb_header $_debfile Package`
 	local _version=`get_deb_header $_debfile Version`
 	local _section=`get_deb_header $_debfile Section`
@@ -375,34 +378,22 @@ deb_op() {
 		_section=`override_get_pkg_component $_source $_suite`
 	fi
 
-	case "$_request" in
-		get-pool)
-			local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
-			echo "$POOLDIR/$_section/$_pkgprefix/$_source/$_suite"
-			;;
-		get-index)
-			for _index_arch in $_index_arch_list; do
-				echo "$DISTSDIR/$_suite/$_section/binary-$_index_arch"
-			done
-			;;
-		bin-db)
-			local _size=`du -sb $_debfile | cut -f1`
-			local _md5sum=`md5sum $_debfile | cut -d' ' -f1`
-			local _control=`ar p $_debfile control.tar.gz | tar zxO ./control | egrep -v '^Source:|^Version:|^Package:|^Section:|^Architecture:' | sed "s/'/''/g"`
-			
-			for _index_arch in $_index_arch_list; do
-				$SQLCMD "INSERT INTO binary_cache (pkgname, version, suite, index_arch,
-						deb_name, deb_arch, deb_section, 
-						deb_size, deb_md5sum, deb_control)
-						VALUES('$_source', '$_version', '$_suite', '$_index_arch',
-							'$_name', '$_arch', '$_section',
-							'$_size', '$_md5sum', '$_control')"
-			done
-			;;
-		*)
-			yell "ERROR: unknown request to deb_op()."
-			;;
-	esac
+	local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
+	local _pool_path="pool/$_section/$_pkgprefix/$_source/$_suite"
+	local _pool_file="$_pool_path/`basename $_debfile`"
+
+	for _index_arch in $_index_arch_list; do
+		$SQLCMD "REPLACE INTO binary_cache (
+				pkgname, version, suite, index_arch,
+				pool_file, deb_name, deb_arch, deb_section, 
+				deb_size, deb_md5sum, deb_control)
+			VALUES('$_source', '$_version', '$_suite', '$_index_arch',
+				'$_pool_file', '$_name', '$_arch', '$_section',
+				'$_size', '$_md5sum', '$_control')"
+	done
+
+	# return destination path 
+	echo "$REPODIR/$_pool_path"
 }
 
 # output package's information (control) for Packages file
@@ -419,6 +410,7 @@ get_Packages_by_source() {
 			||'Source: ' || pkgname || '<BR>'
 	                ||'Version: ' || version || '<BR>'
 			||'Architecture: ' || deb_arch || '<BR>'
+			||'Filename: ' || pool_file || '<BR>'
 			||'Size: ' || deb_size || '<BR>'
 			||'MD5sum: ' || deb_md5sum || '<BR>'
 			||'Section: ' || deb_section || '<BR>'
@@ -431,56 +423,41 @@ get_Packages_by_source() {
 }
 
 # output package's information (control) for Packages file
-# $1 -- _index_arch
-# $2 -- suite
-get_Packages_by_suite() {
-	local _index_arch="$1"
-	local _suite="$2"
-	local _SQL="SELECT 'Package: ' || deb_name || '<BR>'
+# $1 -- suite
+# $2 -- index_arch
+make_Packages() {
+	local _suite="$1"
+	local _index_arch="$2"
+	local _section
+	local _path
+	local _SQL
+
+	local _section_list=`$SQLCMD "SELECT DISTINCT deb_section FROM binary_cache
+		WHERE suite='$_suite' AND index_arch='$_index_arch'"`
+	if [ -z "$_section_list" ]; then
+		return
+	fi
+
+	for _section in $_section_list; do
+		_path="$REPODIR/dists/$_suite/$_section/binary-$_index_arch"
+		_SQL="SELECT 'Package: ' || deb_name || '<BR>'
 			||'Source: ' || pkgname || '<BR>'
 	                ||'Version: ' || version || '<BR>'
 			||'Architecture: ' || deb_arch || '<BR>'
+			||'Filename: ' || pool_file || '<BR>'
 			||'Size: ' || deb_size || '<BR>'
 			||'MD5sum: ' || deb_md5sum || '<BR>'
 			||'Section: ' || deb_section || '<BR>'
 			|| deb_control || '<BR>'
-	            FROM binary_cache WHERE suite='$_suite' AND index_arch='$_index_arch'"
-	$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g'
-}
+	            FROM binary_cache
+			WHERE suite='$_suite'
+			AND deb_section='$_section'
+			AND index_arch='$_index_arch'"
 
-# output package's information (control) to a Packages file
-# $1 -- path to .deb file
-# $2 -- path to Packages
-deb_to_Packages() {
-	local _debfile="$1"
-	local _packagespath="$2"
-	local _debfilename="`echo -n $_debfile | sed -e 's,^.*/,,'`"
-	local _debmd5="`md5sum $_debfile | cut -d' ' -f1`"
-	local _debsz="`stat -c %s $_debfile`"
-	local _debdir="`echo -n $_debfile | sed -e 's,/[^/]*$,,' -e 's,^.*pool/,pool/,'`"
-
-	ar p $_debfile control.tar.gz | tar zxO ./control | \
-	gawk                               \
-		-v debmd5="$_debmd5"       \
-		-v debsz="$_debsz"         \
-		-v debfile="$_debfilename" \
-		-v debdir="$_debdir"       \
-	'END { printf "\n"; }
-	/^Description: / {
-		printf "Filename: %s/%s\n", debdir, debfile;
-		printf "Size: %s\n", debsz;
-		printf "MD5sum: %s\n", debmd5;
-		printf "%s\n", $0;
-		next;
-	}
-	// {
-		print $0;
-	}'     \
-		>> "$_packagespath/Packages"
-
-	gzip -c9                              \
-		< "$_packagespath/Packages"   \
-		> "$_packagespath/Packages.gz"
+		mkdir -p "$_path"
+		$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g' >"$_path/Packages"
+		gzip -c9 < "$_path/Packages" > "$_path/Packages.gz"
+	done
 }
 
 test_sanity() {

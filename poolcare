@@ -101,41 +101,26 @@ scan_all_dsc() {
 	popd > /dev/null
 }
 
-scan_just_one_deb() {
-	local _debfile="$1"
-	local _suite="$2"
-	local _paths="`deb_op get-index $_debfile $_suite`"
-	local _pkgspath
-	
-	if [ -z "$_paths" ]; then
-		yell "WARNING: no index for package $_debfile in suite=$_suite, ignore this package"
-		return
-	fi
-
-	for _path in $_paths; do
-		if [ -d "$_path" ]; then
-			deb_to_Packages "$_debfile" "$_path"
-		else
-			yell "WARNING: no index for package $_debfile"
-			yell "This may indicate that the section field is incorrect"
-		fi
-	done
-}
-
 scan_all_deb() {
 	local _suite
+	local _index_arch
 	local _debfile
 
-	pushd $REPODIR > /dev/null
+	$SQLCMD "DELETE FROM binary_cache"
 
 	find "$POOLDIR" -type f -name "*.deb" | while read _debfile; do
 		# dirty hack, will fix later
 		_suite=`dirname $_debfile`
 		_suite=`basename $_suite`
 
-		scan_just_one_deb "$_debfile" "$_suite"
+		deb_cache "$_debfile" "$_suite" > /dev/null
 	done
-	popd > /dev/null
+
+	for _suite in $SUITES; do
+		for _index_arch in $ARCHES; do
+			make_Packages "$_suite" "$_index_arch"
+		done
+	done
 }
 
 for suite in $SUITES; do

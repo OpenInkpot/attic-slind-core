@@ -39,7 +39,7 @@ if [ -z "$SUITE" ]; then
 	exit 1
 fi
 
-dir=`deb_op get-pool $DEBNAME $SUITE`
+dir=`deb_cache $DEBNAME $SUITE`
 if [ -z "$dir" ]; then
 	yell "WARNING: package $DEBNAME does not match suite=$SUITE, ignore this package"
 	exit 1
@@ -47,4 +47,3 @@ fi
 echo "Moving $DEBNAME to $dir/"
 mkdir -p "$dir"
 mv "$DEBNAME" "$dir"
-deb_op bin-db $dir/`basename $DEBNAME` $SUITE

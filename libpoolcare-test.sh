@@ -103,7 +103,7 @@ test_deb() {
 	fi
     done
     for f in ${test_PKGDIR}/*.deb; do
-	deb_to_Packages $f $test_PKGDIR
+	deb_cache $f 'stable'
     done
     if [ ! -r $test_PKGDIR/Packages ]; then
 	echo "test_deb: FAIL(3)"
@@ -310,80 +310,49 @@ test_override_try_add_package() {
 	echo "test_override_try_add_package: OK"
 }
 
-test_deb_op() {
+test_deb_cache() {
 	local _result
 
-	_result=`deb_op get-pool "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
+	_result=`deb_cache "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
 	if [ -n "$_result" ]; then
-		echo "test_deb_op: FAIL(1)"
+		echo "test_deb_cache: FAIL(1)"
 		return
 	fi
 
-	_result=`deb_op get-pool "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
+	_result=`deb_cache "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
 	if [ -n "$_result" ]; then
-		echo "test_deb_op: FAIL(2)"
+		echo "test_deb_cache: FAIL(2)"
 		return
 	fi
 
-	_result=`deb_op get-pool "${test_PKGDIR}/a_1.0slind0_all.deb" "stable"`
+	_result=`deb_cache "${test_PKGDIR}/a_1.0slind0_all.deb" "stable"`
 	if [ "$_result" != "$POOLDIR/core/a/a/stable" ]; then
-		echo "test_deb_op: FAIL(3)"
+		echo "test_deb_cache: FAIL(3)"
 		return
 	fi
 
-	_result=`deb_op get-pool "${test_PKGDIR}/a_1.0slind2_all.deb" "stable"`
+	_result=`deb_cache "${test_PKGDIR}/a_1.0slind2_all.deb" "stable"`
 	if [ "$_result" != "$POOLDIR/core/a/a/stable" ]; then
-		echo "test_deb_op: FAIL(4)"
+		echo "test_deb_cache: FAIL(4)"
 		return
 	fi
 
-	_result=`deb_op get-index "${test_PKGDIR}/a_1.0slind3_all.deb" "stable"`
-	if [ -n "$_result" ]; then
-		echo "test_deb_op: FAIL(5)"
-		return
-	fi
-
-	_result=`deb_op get-index "${test_PKGDIR}/c_1.0slind0_all.deb" "stable"`
-	if [ -n "$_result" ]; then
-		echo "test_deb_op: FAIL(6)"
-		return
-	fi
-
-	_result=`deb_op get-index "${test_PKGDIR}/a_1.0slind0_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "$DISTSDIR/stable/core/binary-arm $DISTSDIR/stable/core/binary-i386 $DISTSDIR/stable/core/binary-sh4" ]; then
-		echo "test_deb_op: FAIL(7)"
-		return
-	fi
-
-	_result=`deb_op get-index "${test_PKGDIR}/a_1.0slind2_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "$DISTSDIR/stable/core/binary-mips $DISTSDIR/stable/core/binary-ppc" ]; then
-		echo "test_deb_op: FAIL(8)"
-		return
-	fi
-
-	_result=`deb_op get-index "${test_PKGDIR}/e_2.3.slind12_all.deb" "stable" | sort | xargs`
-	if [ "$_result" != "$DISTSDIR/stable/core/binary-arm" ]; then
-		echo "test_deb_op: FAIL(9)"
-		return
-	fi
-
-	echo "test_deb_op: OK"
+	echo "test_deb_cache: OK"
 }
 
 rm -rf $test_PKGDIR $test_REPODIR $test_POOLDIR
 test_database
 override_check_suite stable
 test_pkg
-test_deb
+#test_deb
 test_dsc
 test_override_get_pkg_version
 test_override_get_pkg_arches_list
 test_override_get_pkg_component
 test_override_try_add_package
-test_deb_op
+test_deb_cache
 override_insert_new_record 'b' '1.0slind3' 'stable' 'i386' 'data'
 for f in $test_PKGDIR/*.deb; do
-	deb_op "bin-db" $f "stable"
+       deb_cache $f "stable"
 done
-
-#get_Packages_by_suite 'stable' 'i386'
+make_Packages 'stable' 'i386'

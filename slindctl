@@ -10,6 +10,7 @@ fi
 
 CHROOTCMD="$ROOTCMD chroot $TARGET su - build -c"
 HOSTARCH=`dpkg --print-architecture`
+TAR_OPTS="--exclude CVS --exclude .svn --exclude .git --exclude _darcs"
 
 TOOLCHAIN_LIST="i386-toolchain"
 for _a in $ARCHES; do
@@ -22,6 +23,23 @@ BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg minip
 # we can even run package builder
 PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross $TOOLCHAIN_LIST toolchain-package debootstrap adduser libglib2.0-dev fakechroot cross-shell debhelper"
 MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo curl"
+
+
+BROKEN_LIST="cross-shell i386-toolchain arm-cross-toolchain sh4a-cross-toolchain uclibc-arm-cross-toolchain"
+
+# rebuild PKGLIST ignoring packages from BROKEN_LIST, move ingnored packages to SKIP_LIST
+tmp_LIST=""
+SKIP_LIST=""
+for _pkg in $PKGLIST; do
+	# check the package presense in BROKEN_LIST 
+	echo $BROKEN_LIST | egrep "\<$_pkg\>" > /dev/null
+	if [ "$?" -eq 0 ]; then
+		SKIP_LIST="$SKIP_LIST $_pkg"
+	else
+		tmp_LIST="$tmp_LIST $_pkg"
+	fi
+done
+PKGLIST="$tmp_LIST"
 
 # These all should be overrideable from configuration files
 # See grasp documentation for the actual meaning of those.
@@ -64,47 +82,23 @@ configure_target() {
 
 # 2. copy tools inside
 copy_tools() {
-	echo "=== copy_tools ==="
-	if [ "${TOOLSDIR#http*:}" = "$TOOLSDIR" ]; then
-	        echo "Copying $TOOLSDIR to $TARGET/tools"
-		$ROOTCMD mkdir -p $TARGET/tools
-		( cd $TOOLSDIR; tar -c --exclude CVS * ) | \
-			$ROOTCMD tar xf - -C $TARGET/tools
+	if [ "${SLIND_REPO#http*:}" = "$SLIND_REPO" -a "${SLIND_REPO#ftp:}" = "$SLIND_REPO" ]; then
+	        echo "Copying local SLIND repos ($SLIND_REPO) to $TARGET/SLIND"
+		SLIND_REPO=${SLIND_REPO#file://}
+		$ROOTCMD mkdir -p $TARGET/SLIND
+		( cd $SLIND_REPO; tar -c * $TAR_OPTS ) | \
+			$ROOTCMD tar xf - -C $TARGET/SLIND
 	        # for the chroot environment, the tools are now in /tools
-	        TOOLSDIR="file:///tools"
-	else
-	        echo "Tools are on HTTP server. No local copying needed."
+	        SLIND_REPO="file:///SLIND"
 	fi
-	if [ "${SLINDSRC#http*:}" = "$SLINDSRC" ]; then
-	        echo "Copying $SLINDSRC to $TARGET/slind"
-		$ROOTCMD mkdir -p $TARGET/slind
-		( cd $SLINDSRC; tar -c --exclude CVS * ) | \
-			$ROOTCMD tar xf - -C $TARGET/slind
-	        # for the chroot environment...
-	        SLINDSRC="file:///slind"
-	else
-		$ROOTCMD mkdir -p $TARGET/slind
-		$ROOTCMD wget $SLINDSRC/$SUITE -O $TARGET/slind/$SUITE
-
-	        echo "Slind repository is on HTTP server. No local copying needed."
-	fi
-	
 }
 
 # 3. configure apt
 configure_apt() {
-	local mode="$1"
-
 	echo "=== configure_apt ==="
 	echo "deb $MIRROR $DEBSUITE main" > sources.list
-
-	if [ "$mode" = "maintainer" ]; then
-		echo "deb $HSTOOLS_MIRROR $SUITE host-tools" >> sources.list
-		echo "deb-src $HSTOOLS_MIRROR $SUITE core gui host-tools" >> sources.list
-	else
-		echo "deb $TOOLSDIR ./" >> sources.list
-		echo "deb-src $SLINDSRC $SUITE main" >> sources.list
-	fi
+	echo "deb $SLIND_REPO $SUITE host-tools" >> sources.list
+	echo "deb-src $SLIND_REPO $SUITE host-tools core gui security debug" >> sources.list
 
 	$ROOTCMD mv sources.list $TARGET/etc/apt/sources.list
 	$ROOTCMD chroot $TARGET apt-get update
@@ -115,7 +109,6 @@ dev_install() {
 	echo "=== dev_install ==="
 	$ROOTCMD chroot $TARGET apt-get install --yes --force-yes $@
 	$ROOTCMD chroot $TARGET apt-get clean
-	#$ROOTCMD cp -a $SLINDSRC $TARGET/slind
 }
 
 # 4.5. create a user for building
@@ -140,39 +133,12 @@ configure_tools() {
 	echo "repo_format 2"              >> $GRASP_CONFIG
 }
 
-# 5. build everything
-build_for_host() {
-	echo "=== build for host ==="
-	for pkg in $BASEPKGLIST; do
-		$CHROOTCMD "nc build $pkg --arch $HOSTARCH --path $REPODIR"
-	done
-}
-
-build_for_target() {
-	echo "=== build for target ==="
-	local ARCH
-
-	for ARCH in $ARCHES; do
-		$CHROOTCMD "nc world --arch $ARCH --path $REPODIR"
-	done	
-}
-
-update_lists() {
-	$CHROOTCMD "nc update --arch $HOSTARCH --path $REPODIR"
-
-	local ARCH
-
-	for ARCH in $ARCHES; do
-		$CHROOTCMD "nc update --arch $ARCH --path $REPODIR"
-	done
-}
-
 # 6. bootstrap i386 rootfs
 bootstrap_host() {
 	echo "=== bootstrap host ==="
 	[ -f $TARGET/slind/$SUITE ] || $ROOTCMD cp ./$SUITE $TARGET/slind
 	$ROOTCMD mkdir -p $TARGET/rootfs-$HOSTARCH
-	$ROOTCMD chroot $TARGET debootstrap $SUITE /rootfs-$HOSTARCH $SLINDSRC /slind/$SUITE
+	$ROOTCMD chroot $TARGET debootstrap $SUITE /rootfs-$HOSTARCH $SLIND_REPO /slind/$SUITE
 	$ROOTCMD chmod u+s $TARGET/rootfs-$HOSTARCH/sbin/ldconfig
 }
 
@@ -185,7 +151,7 @@ bootstrap_target() {
 	for ARCH in $ARCHES; do
 		$ROOTCMD mkdir -p $TARGET/rootfs-$ARCH
 		$ROOTCMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $TARGET/etc/cross-shell.conf
-		$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLINDSRC," $TARGET/etc/cross-shell.conf
+		$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLIND_REPO," $TARGET/etc/cross-shell.conf
 		$ROOTCMD chown -R $UID:$UID $TARGET/rootfs-$ARCH
 		$CHROOTCMD "cross-shell bs"
 		$CHROOTCMD "cross-shell apt $TARGET_APT"
@@ -194,46 +160,30 @@ bootstrap_target() {
 }
 
 case "$1" in
-	all)
+	setup)
+		[ -n "$SKIP_LIST" ] && echo "WARNING!!! Skipping broken packages: $SKIP_LIST" >&2
 		dev_bootstrap
 		configure_target
 		copy_tools
 		configure_apt
 		dev_install $PKGLIST
 		add_user
-		build_for_host
-		build_for_target
-		update_lists
+		configure_tools
+		;;
+	bootstrap)
 		bootstrap_host
 		bootstrap_target
 		;;
-	*bootstrap*)
-		update_lists
-		bootstrap_host
-		bootstrap_target
-		;;
-	*maintainer-setup*)
-		if [ -z "$HSTOOLS_MIRROR" ]; then
-			echo "ERROR: host-tools repository (HSTOOLS_MIRROR variable) is not set."
-			exit 1
-		fi
+	maintainer-setup)
 		dev_bootstrap
 		configure_target
-		configure_apt "maintainer"
+		copy_tools
+		configure_apt
 		dev_install $MAINTAINER_PKGLIST
 		add_user
 		configure_tools
 		;;
-	*setup*)
-		dev_bootstrap
-		configure_target
-		copy_tools
-		configure_apt
-		dev_install $PKGLIST
-		add_user
-		configure_tools
-		;;
-	*maintainer-build*)
+	maintainer-build)
 		$PRE_SLINDJOB_HOOK
 		set -e
 		sh /usr/lib/slind-core/slind-host-tools-bootstrap --build
@@ -245,13 +195,8 @@ case "$1" in
 		set +e
 		$POST_SLINDJOB_HOOK
 		;;
-	*build*)
-		build_for_host
-		build_for_target
-		update_lists
-		;;
 	*)
-		echo "Usage: `basename $0` {all|bootstrap|maintainer-setup|setup|build}"
+		echo "Usage: `basename $0` {setup|bootstrap|maintainer-setup|maintainer-build}"
 		exit 1
 		;;
 esac

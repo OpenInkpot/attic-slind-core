@@ -27,11 +27,12 @@ check_suites() {
 	local _suite
 	local _result
 	for _suite in $SUITES; do
+		[ "$_suite" = "attic" ] && continue
 		echo "=========================="
 		echo "# Testing suite $_suite"
 		echo "=========================="
 		_result=`override_check_suite $_suite`
-		if [ "$_result" != "OK" -a "$_suite" != "attic" ]; then
+		if [ "$_result" != "OK" ]; then
 			yell "POOLCARE ERROR: Broken suite '$_suite', fix it and try again"
 			exit 1
 		fi

@@ -377,6 +377,9 @@ deb_cache() {
 	if [ -z "$_section" ]; then
 		_section=`override_get_pkg_component $_source $_suite`
 	fi
+	if [ "$_arch" = "all" -a "$_section" = "host-tools" ]; then
+		_index_arch_list="$ARCHES"
+	fi
 
 	local _pkgprefix=`expr "$_source" : "\(lib.\|.\)"`
 	local _pool_path="pool/$_section/$_pkgprefix/$_source/$_suite"

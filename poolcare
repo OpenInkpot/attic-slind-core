@@ -23,33 +23,18 @@ else
 	exit 1
 fi
 
-# prepare for scanning
-prologue() {
-	if [ ! -f "$OVERRIDES_DB" ]; then
-		mkdir -p "$IDXDIR"
-		touch "$OVERRIDES_DB"
-		mkoverrides
-	fi
-
-	for _s in $SUITES; do
-		for _c in $COMPONENTS; do
-			if [ ! -d "$DISTSDIR/$_s/$_c/source" ]; then
-				mkdir -p "$DISTSDIR/$_s/$_c/source"
-			fi
-			: > "$DISTSDIR/$_s/$_c/source/Sources"
-			gzip -c9 < "$DISTSDIR/$_s/$_c/source/Sources" \
-				> "$DISTSDIR/$_s/$_c/source/Sources.gz"
-
-			for _a in $ARCHES; do
-				if [ ! -d "$DISTSDIR/$_s/$_c/binary-$_a" ]; then
-					mkdir -p "$DISTSDIR/$_s/$_c/binary-$_a"
-				fi
-				: > "$DISTSDIR/$_s/$_c/binary-$_a/Packages"
-				gzip -c9 \
-					< "$DISTSDIR/$_s/$_c/binary-$_a/Packages"\
-					> "$DISTSDIR/$_s/$_c/binary-$_a/Packages.gz"
-			done
-		done
+check_suites() {
+	local _suite
+	local _result
+	for _suite in $SUITES; do
+		echo "=========================="
+		echo "# Testing suite $_suite"
+		echo "=========================="
+		_result=`override_check_suite $_suite`
+		if [ "$_result" != "OK" -a "$_suite" != "attic" ]; then
+			yell "POOLCARE ERROR: Broken suite '$_suite', fix it and try again"
+			exit 1
+		fi
 	done
 }
 
@@ -67,7 +52,7 @@ scan_just_one_dsc() {
 	local _pkgcomp="`grep '^Section: ' $_dscfile | cut -d' ' -f2`"
 
 	[ -n "$_pkgcomp" ] || _pkgcomp='broken'
-	echo $COMPONENTS | egrep "(^| )$_pkgcomp( |\$)" >/dev/null || _pkgcomp='broken'
+	echo $COMPONENTS | egrep "\<$_pkgcomp\>" >/dev/null || _pkgcomp='broken'
 
 	# check with overrides db
 	_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
@@ -92,13 +77,30 @@ scan_just_one_dsc() {
 }
 
 scan_all_dsc() {
-	pushd $REPODIR > /dev/null
+	local _suite
+	local _component
+	local _dscfile
+
+	echo "=========================="
+	echo "# Creating .dsc indexes"
+	echo "=========================="
+
+	# create predefined src indexes
+	for _suite in $SUITES; do
+		for _component in $COMPONENTS; do
+			if [ ! -d "$DISTSDIR/$_suite/$_component/source" ]; then
+				mkdir -p "$DISTSDIR/$_suite/$_component/source"
+			fi
+			: > "$DISTSDIR/$_suite/$_component/source/Sources"
+			gzip -c9 \
+				< "$DISTSDIR/$_suite/$_component/source/Sources" \
+				> "$DISTSDIR/$_suite/$_component/source/Sources.gz"
+		done
+	done
 
 	find "$POOLDIR" -type f -name '*.dsc' | while read _dscfile; do
 		scan_just_one_dsc "$_dscfile"
 	done
-
-	popd > /dev/null
 }
 
 scan_all_deb() {
@@ -106,8 +108,14 @@ scan_all_deb() {
 	local _index_arch
 	local _debfile
 
+	echo "========================="
+	echo "# Rebuilding binary cache"
+	echo "========================="
+
+	# purge binary cache
 	$SQLCMD "DELETE FROM binary_cache"
 
+	# populate binary cache
 	find "$POOLDIR" -type f -name "*.deb" | while read _debfile; do
 		# dirty hack, will fix later
 		_suite=`dirname $_debfile`
@@ -116,6 +124,10 @@ scan_all_deb() {
 		deb_cache "$_debfile" "$_suite" > /dev/null
 	done
 
+	echo "=========================="
+	echo "# Creating .deb indexes"
+	echo "=========================="
+
 	for _suite in $SUITES; do
 		for _index_arch in $ARCHES; do
 			make_Packages "$_suite" "$_index_arch"
@@ -123,13 +135,33 @@ scan_all_deb() {
 	done
 }
 
-for suite in $SUITES; do
-	result=`override_check_suite $suite`
-	if [ "$result" != "OK" -a "$suite" != "attic" ]; then
-		yell "POOLCARE ERROR: Broken suite '$suite', fix it and try again"
-		exit
-	fi
-done
-prologue
-scan_all_dsc
-scan_all_deb
+if [ ! -f "$OVERRIDES_DB" ]; then
+	mkdir -p "$IDXDIR"
+	touch "$OVERRIDES_DB"
+	mkoverrides
+fi
+
+case "$1" in
+	-h|--help)
+		echo "Usage: `basename $0` [--rebuild-all | --test-suite suite]"
+		;;
+	--test-suite)
+		test_sanity
+		if [ -z "$2" ]; then
+			yell "suite is missing"
+			exit 1
+		fi
+		override_check_suite "$2"
+		;;
+	--rebuild-all)
+		test_sanity
+		check_suites
+		scan_all_dsc
+		scan_all_deb
+		;;
+	*)
+		test_sanity
+		check_suites
+		scan_all_dsc
+		;;
+esac

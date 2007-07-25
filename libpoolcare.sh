@@ -35,7 +35,7 @@ mkoverrides() {
 		deb_md5sum char(32) NOT NULL,
 		deb_control text NOT NULL,
 		deb_section varchar NOT NULL,
-		UNIQUE (pkgname, version, suite, index_arch, deb_name, deb_arch));
+		UNIQUE (pkgname, suite, index_arch, deb_name));
 		"
 }
 
@@ -397,32 +397,6 @@ deb_cache() {
 }
 
 # output package's information (control) for Packages file
-# $1 -- name to source
-# $2 -- version
-# $3 -- suite
-# $4 -- index_arch
-get_Packages_by_source() {
-	local _pkgname="$1"
-	local _version="$2"
-	local _suite="$3"
-	local _index_arch="$4"
-	local _SQL="SELECT 'Package: ' || deb_name || '<BR>'
-			||'Source: ' || pkgname || '<BR>'
-	                ||'Version: ' || version || '<BR>'
-			||'Architecture: ' || deb_arch || '<BR>'
-			||'Filename: ' || pool_file || '<BR>'
-			||'Size: ' || deb_size || '<BR>'
-			||'MD5sum: ' || deb_md5sum || '<BR>'
-			||'Section: ' || deb_section || '<BR>'
-			|| deb_control || '<BR>'
-	            FROM binary_cache WHERE pkgname='$_pkgname'
-				      AND version='$_version'
-				      AND suite='$_suite'
-				      AND index_arch='$_index_arch'"
-	$SQLCMD "$_SQL" | sed -e 's/<BR>/\n/g'
-}
-
-# output package's information (control) for Packages file
 # $1 -- suite
 # $2 -- index_arch
 make_Packages() {
@@ -432,6 +406,14 @@ make_Packages() {
 	local _path
 	local _SQL
 
+	# create predefined binary indexes
+	for _section in $COMPONENTS; do
+		_path="$DISTSDIR/$_suite/$_section/binary-$_index_arch"
+		mkdir -p "$_path"
+		: > "$_path/Packages"
+		gzip -c9 < "$_path/Packages" > "$_path/Packages.gz"
+	done
+	
 	local _section_list=`$SQLCMD "SELECT DISTINCT deb_section FROM binary_cache
 		WHERE suite='$_suite' AND index_arch='$_index_arch'"`
 	if [ -z "$_section_list" ]; then
@@ -439,7 +421,7 @@ make_Packages() {
 	fi
 
 	for _section in $_section_list; do
-		_path="$REPODIR/dists/$_suite/$_section/binary-$_index_arch"
+		_path="$DISTSDIR/$_suite/$_section/binary-$_index_arch"
 		_SQL="SELECT 'Package: ' || deb_name || '<BR>'
 			||'Source: ' || pkgname || '<BR>'
 	                ||'Version: ' || version || '<BR>'
@@ -482,6 +464,10 @@ test_sanity() {
 	fi
 	if [ -z "${ARCHES}" ];then
 		yell "ARCHES is not set"
+		exit 1
+	fi
+	if [ -z "${COMPONENTS}" ];then
+		yell "COMPONENTS is not set"
 		exit 1
 	fi
 }

@@ -7,7 +7,7 @@ test -z "$REPODIR"            && REPODIR="/tmp/repo"
 test -z "$BUILDDIR"           && BUILDDIR="/tmp/base_pkg"
 test -z "$TOOLCHAIN_BUILDDIR" && TOOLCHAIN_BUILDDIR="/tmp/tpkg"
 
-HSTOOLS_SRC_PKGLIST="dpkg dpkg-cross slind-core toolchain-package grasp northern-cross"
+HSTOOLS_SRC_PKGLIST="dpkg dpkg-cross slind-core toolchain-package grasp northern-cross fakechroot-cross cross-shell"
 HSTOOLS_TO_INSTALL="dpkg dpkg-dev dselect dpkg-cross grasp slind-core slind-maintainer-core toolchain-package-maintainer"
 
 POOLCARE_LIB="/usr/lib/slind-core/libpoolcare.sh"

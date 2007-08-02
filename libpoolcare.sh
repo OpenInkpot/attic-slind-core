@@ -35,7 +35,7 @@ mkoverrides() {
 		deb_md5sum char(32) NOT NULL,
 		deb_control text NOT NULL,
 		deb_section varchar NOT NULL,
-		UNIQUE (pkgname, suite, index_arch, deb_name));
+		UNIQUE (pkgname, suite, index_arch, deb_name, deb_section));
 		"
 }
 

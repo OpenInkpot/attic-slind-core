@@ -8,9 +8,13 @@ Package: slind-core
 Section: host-tools
 Priority: optional
 Architecture: all
-Depends: debootstrap, sudo
+Depends: debootstrap, sudo, gawk, dpkg-repack
 Description: SLIND cross-development environment tools
- This is SLIND. The rest is TODO.
+ This package includes core Slind tools like 'slindctl'. In theory, this is the
+ only package which needs to be installed by a final user of Slind distribution.
+ .
+ Slind is a small Debian-inspired distribution for embedded targets, see
+ http://www.slind.org for more information on Slind installation and usage.
 
 Package: slind-maintainer-core
 Section: host-tools
@@ -18,5 +22,11 @@ Priority: optional
 Architecture: all
 Depends: slind-core, grasp, sqlite3, gawk, curl
 Description: SLIND maintainance helpers
- This is SLIND. The rest is TODO.
+ This package includes additional tools which are likely to be only required by
+ maintainers of Slind packages or Slind developers and won't be of much help for
+ people trying just to produce a root filesystem for their target out of
+ pre-built packages.
+ .
+ Slind is a small Debian-inspired distribution for embedded targets, see
+ http://www.slind.org for more information on Slind installation and usage.
 

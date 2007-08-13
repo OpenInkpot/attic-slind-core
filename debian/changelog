@@ -1,3 +1,12 @@
+slind-core (0.3) unstable; urgency=low
+
+  * New style of configuration file, everything is now in one, nice, smooth,
+    user-friendly file.
+  * Install "pget" tool to parse .ini-style files.
+  * Add descriptions.
+
+ -- Wartan Hachaturow <wart@slind.org>  Mon, 06 Aug 2007 15:44:51 +0400
+
 slind-core (0.2) unstable; urgency=low
 
   * Added slind-maintainer-core package with all the handy-dandy tools for

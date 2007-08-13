@@ -1,23 +1,16 @@
 #!/bin/sh
 
-SUITES="clydesdale percheron attic"
-DEVSUITE="clydesdale"
-COMPONENTS="host-tools core gui security debug"
-
-SLIND_CONFIG=~/.slind-config
-if [ -f $SLIND_CONFIG ]; then
-	. $SLIND_CONFIG
+LIBUTILS=/usr/lib/slind-core/libutils.sh
+if [ -f "$LIBUTILS" ]; then
+	. $LIBUTILS
 else
-	echo "Can't open $SLIND_CONFIG"
+	echo "Error: can't load library $LIBUTILS"
 	exit 1
 fi
-ARCHES="arm powerpc i386 mips mipsel sh4 sh4a uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 uclibc-sh4a"
 
-if [ -z "$REPODIR" ]; then
-	echo "REPODIR variable is not set in your $SLIND_CONFIG,"
-	echo "please specify it to be the path to your local repository"
-	exit 1
-fi
+load_slind_config_common
+load_slind_config_maintainer_common
+load_suites_config
 
 LIBRARY=/usr/lib/slind-core/libpoolcare.sh
 if [ -f "$LIBRARY" ]; then

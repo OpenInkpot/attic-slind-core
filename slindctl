@@ -1,52 +1,74 @@
 #!/bin/sh
+set -x
 
-CONFIG_FILE=~/.slind-config
-if [ ! -f $CONFIG_FILE ]; then
-	echo "Config file $CONFIG_FILE not found, creating one for you."
-	cp /etc/slind/slind-config $CONFIG_FILE
+LIBUTILS=/usr/lib/slind-core/libutils.sh
+if [ -f "$LIBUTILS" ]; then
+	. $LIBUTILS
+else
+	echo "Error: can't load library $LIBUTILS"
+	exit 1
 fi
 
-. $CONFIG_FILE
+load_slind_config_common
+load_slind_config_maintainer_common
+load_suites_config
 
-CHROOTCMD="$ROOTCMD chroot $TARGET su - build -c"
+LIBRARY=/usr/lib/slind-core/libpoolcare.sh
+if [ -f "$LIBRARY" ]; then
+	. $LIBRARY
+else
+	echo "Error: can't load library $LIBRARY"
+	exit 1
+fi
+
+TARGET_ARCHES=`conf_get_var_strict $SLIND_CONFIG target target_arch`
 HOSTARCH=`dpkg --print-architecture`
 TAR_OPTS="--exclude CVS --exclude .svn --exclude .git --exclude _darcs"
 
-TOOLCHAIN_LIST="i386-toolchain"
-for _a in $ARCHES; do
+# Well, in theory, this package should be made by mktpkg in the course of its
+# action, so there's no need to do it here.
+# TOOLCHAIN_LIST="i386-toolchain"
+
+# List of toolchains that should be installed inside chroot.
+for _a in $TARGET_ARCHES; do
 	TOOLCHAIN_LIST="$TOOLCHAIN_LIST ${_a}-cross-toolchain"
 done
 
 # list of basic target packages
-BASEPKGLIST="base-files base-passwd busybox sysvinit ifupdown netbase dpkg miniperl apt"
+BASE_TGT_PKG_LIST=`conf_get_var_strict $SLIND_CONFIG slindctl base_tgt_pkg_list`
+
 # list of host packages that we need to install before
 # we can even run package builder
-PKGLIST="dpkg dpkg-dev dpkg-cross northern-cross $TOOLCHAIN_LIST toolchain-package debootstrap adduser libglib2.0-dev libfakechroot-cross cross-shell debhelper"
-MAINTAINER_PKGLIST="sudo adduser realpath lsb-release flex sqlite3 dpatch cdbs quilt git-core debhelper debootstrap fakeroot pkg-config autoconf2.13 automake1.7 zlib1g-dev libncurses5-dev libcurl3-dev libpopt-dev docbook-to-man texi2html texinfo curl"
+BASE_HST_PKG_LIST=`conf_get_var_strict $SLIND_CONFIG slindctl base_hst_pkg_list`
+BASE_HST_PKG_LIST="$BASE_HST_PKG_LIST $TOOLCHAIN_LIST"
 
+# Build-depends for maintainers
+BASE_HST_MAINT_PKG_LIST=`conf_get_var_strict $SLIND_CONFIG slindctl base_hst_maint_pkg_list`
 
-BROKEN_LIST="i386-toolchain arm-cross-toolchain sh4a-cross-toolchain uclibc-arm-cross-toolchain"
+# Broken packages will be excluded from BASE_HST_PKG_LIST
+BROKEN_HST_PKG_LIST=`conf_get_var_relaxed $SLIND_CONFIG slindctl broken_hst_pkg_list`
 
-# rebuild PKGLIST ignoring packages from BROKEN_LIST, move ingnored packages to SKIP_LIST
+# rebuild PKGLIST ignoring packages from BROKEN_HST_PKG_LIST, move ingnored packages to SKIP_LIST
 tmp_LIST=""
 SKIP_LIST=""
-for _pkg in $PKGLIST; do
-	# check the package presense in BROKEN_LIST 
-	echo $BROKEN_LIST | egrep "\<$_pkg\>" > /dev/null
+for _pkg in $BASE_HST_PKG_LIST; do
+	# check the package presense in BROKEN_HST_PKG_LIST 
+	echo $BROKEN_HST_PKG_LIST | egrep "\<$_pkg\>" > /dev/null
 	if [ "$?" -eq 0 ]; then
 		SKIP_LIST="$SKIP_LIST $_pkg"
 	else
 		tmp_LIST="$tmp_LIST $_pkg"
 	fi
 done
-PKGLIST="$tmp_LIST"
+BASE_HST_PKG_LIST="$tmp_LIST"
 
-# These all should be overrideable from configuration files
-# See grasp documentation for the actual meaning of those.
-[ -n "$GITBASE_URL" ]  || GITBASE_URL="http://git.slind.org/gitrepos/"
-[ -n "$GITREPOS_DIR" ] || GITREPOS_DIR="/build/grasp-repos"
-[ -n "$TARBALLS_DIR" ] || TARBALLS_DIR="/build/grasp-tarballs"
-[ -n "$GRASP_REPO" ]   || GRASP_REPO="/build/grasp-out"
+[ -n "$HTTP_PROXY_URL" ] && PROXYENV="http_proxy=$HTTP_PROXY_URL"
+[ -n "$FTP_PROXY_URL" ]  && PROXYENV="$PROXYENV ftp_proxy=$FTP_PROXY_URL"
+
+CHROOTENV="env $PROXYENV $CHROOTENV"
+
+CHROOTCMD_BUILD="$ROOT_CMD chroot $WORK_DIR $CHROOTENV su - build -c"
+CHROOTCMD_ROOT="$ROOT_CMD chroot $WORK_DIR $CHROOTENV /bin/sh -c"
 
 # hook functions
 [ -n "$PRE_SLINDJOB_HOOK" ]  || PRE_SLINDJOB_HOOK=empty_hook
@@ -67,9 +89,68 @@ fi
 # 1. bootstrap building environment
 dev_bootstrap() {
 	echo "=== dev_bootstrap ==="
-	$ROOTCMD debootstrap --variant=buildd $DEBSUITE $TARGET $MIRROR
+	$ROOT_CMD debootstrap --variant=buildd $DEBIAN_SUITE $WORK_DIR $DEBIAN_MIRROR
 	if [ "$?" != "0" ]; then
-		echo "Failed to bootstrap $DEBSUITE from $MIRROR to $TARGET"
+		echo "Failed to bootstrap $DEBIAN_SUITE from $DEBIAN_MIRROR to $WORK_DIR"
+		exit 1
+	fi
+}
+
+# 1.1. copy whole slind-core inside chroot
+copy_slind_core() {
+	# I know that it's bad, since it ties us up to Debian on host system.
+	# OTOH, all other solutions, such as copying poolcare and debootstrap
+	# scripts, are much worse.
+	# I still think it's a neat idea to copy slind-core installation as a
+	# whole. On Debian, dpkg-repack suits this need. On Gentoo/RPM/FOO-based
+	# distro, other solutions should be employed. Anyone?
+	# In short, FIXME.
+	local _dir
+	local _depends
+	local _tmpfile1
+	local _tmpfile2
+
+	echo "=== copy_slind_core ==="
+
+	# Are there any local configuration files, and if they are, are they
+	# different?
+	if [ -f "$SLIND_USR_CONFIG" ]; then
+	    # Okay, there is one. Is it different?
+	    cmp $SLIND_USR_CONFIG $SLIND_DEF_CONFIG || {
+		# Okay, they are different.
+		# The only way I know to put the file into the dpkg-repacked
+		# one is to copy it to default.
+		_tmpfile1=`mktemp`
+		cp $SLIND_DEF_CONFIG $_tmpfile1
+		$ROOT_CMD cp $SLIND_USR_CONFIG $SLIND_DEF_CONFIG
+	    }
+	fi
+	
+	if [ -f "$SLIND_USR_SUITES_CONFIG" ]; then
+	    # Okay, there is one. Is it different?
+	    cmp $SLIND_USR_SUITES_CONFIG $SLIND_SUITES_DEF_CONFIG || {
+		# Okay, they are different.
+		# The only way I know to put the file into the dpkg-repacked
+		# one is to copy it to default.
+		_tmpfile2=`mktemp`
+		cp $SLIND_SUITES_DEF_CONFIG $_tmpfile2
+		$ROOT_CMD cp $SLIND_USR_SUITES_CONFIG $SLIND_SUITES_DEF_CONFIG
+	    }
+	fi
+
+	_dir=`mktemp -d`
+	pushd $_dir
+	$ROOT_CMD dpkg-repack slind-core
+	popd
+	_depends=`dpkg-deb -f $_dir/slind-core*.deb Depends | sed -e "s/,/ /g"`
+	$CHROOTCMD_ROOT "apt-get install --yes --force-yes $_depends"
+	$ROOT_CMD dpkg --root=$WORK_DIR -i $_dir/slind-core*.deb
+	$ROOT_CMD rm -rf $_dir
+	# Move backups back.
+	[ -n "$_tmpfile1"] && $ROOT_CMD mv $_tmpfile1 $SLIND_DEF_CONFIG
+	[ -n "$_tmpfile2"] && $ROOT_CMD mv $_tmpfile2 $SLIND_SUITES_DEF_CONFIG
+	if [ "$?" != "0" ]; then
+		echo "Failed to copy installed slind-core package to $WORK_DIR chroot"
 		exit 1
 	fi
 }
@@ -77,69 +158,108 @@ dev_bootstrap() {
 # 1.5. configure target
 configure_target() {
 	echo "=== configure_target ==="
-	$ROOTCMD cp /etc/hosts $TARGET/etc/hosts	
+	$ROOT_CMD cp /etc/hosts $WORK_DIR/etc/hosts	
 }
 
 # 2. copy tools inside
 copy_tools() {
-	if [ "${SLIND_REPO#http*:}" = "$SLIND_REPO" -a "${SLIND_REPO#ftp:}" = "$SLIND_REPO" ]; then
-	        echo "Copying local SLIND repos ($SLIND_REPO) to $TARGET/SLIND"
-		SLIND_REPO=${SLIND_REPO#file://}
-		$ROOTCMD mkdir -p $TARGET/SLIND
-		( cd $SLIND_REPO; tar -c * $TAR_OPTS ) | \
-			$ROOTCMD tar xf - -C $TARGET/SLIND
-	        # for the chroot environment, the tools are now in /tools
-	        SLIND_REPO="file:///SLIND"
+	if [ "${SLIND_MIRROR#http*:}" = "$SLIND_MIRROR" -a "${SLIND_MIRROR#ftp:}" = "$SLIND_MIRROR" ]; then
+	        echo "Copying local SLIND mirror ($SLIND_MIRROR) to $WORK_DIR/SLIND"
+		SLIND_MIRROR_DIR=${SLIND_MIRROR#file://}
+		$ROOT_CMD mkdir -p $WORK_DIR/SLIND
+		( cd $SLIND_MIRROR_DIR; tar -c * $TAR_OPTS ) | \
+			$ROOT_CMD tar xf - -C $WORK_DIR/SLIND
+	        # Since SLIND_MIRROR is used inside our working chroot, and we
+		# determined we're using a local directory, override
+		# SLIND_MIRROR with a path _inside_ chroot.
+	        SLIND_MIRROR="file:///SLIND"
 	fi
 }
 
 # 3. configure apt
 configure_apt() {
-	echo "=== configure_apt ==="
-	echo "deb $MIRROR $DEBSUITE main" > sources.list
-	echo "deb $SLIND_REPO $SUITE host-tools" >> sources.list
-	echo "deb-src $SLIND_REPO $SUITE host-tools core gui security debug" >> sources.list
+	local _tmpfile
+	local _tmpfile_apt_pref
+	local _comp
+	local _host_comp
+	local _suite_host_comp
 
-	$ROOTCMD mv sources.list $TARGET/etc/apt/sources.list
-	$ROOTCMD chroot $TARGET apt-get update
+	_tmpfile=`mktemp` || {
+	    yell "ERROR: can't create temporary file"
+	    exit 1
+	}
+	
+	_tmpfile_apt_pref=`mktemp` || {
+	    yell "ERROR: can't create temporary file"
+	    exit 1
+	}
+
+	load_suites_config $SLIND_SUITE
+
+	echo "=== configure_apt ==="
+	echo "deb $DEBIAN_MIRROR $DEBIAN_SUITE main" > $_tmpfile
+	echo "deb $SLIND_MIRROR $SLIND_SUITE $HOST_COMPONENTS" >> $_tmpfile
+	echo "deb-src $SLIND_MIRROR $SLIND_SUITE $COMPONENTS" >> $_tmpfile
+
+	cat > $_tmpfile_apt_pref<<EOF
+Package: *
+Pin: release o=Debian
+Pin-Priority: 999
+EOF
+
+	$ROOT_CMD mv $_tmpfile $WORK_DIR/etc/apt/sources.list
+	$ROOT_CMD mv $_tmpfile_apt_pref $WORK_DIR/etc/apt/preferences
+	$CHROOTCMD_ROOT "apt-get update"
 }
 
 # 4. install necessary packages
 dev_install() {
 	echo "=== dev_install ==="
-	$ROOTCMD chroot $TARGET apt-get install --yes --force-yes $@
-	$ROOTCMD chroot $TARGET apt-get clean
+	$CHROOTCMD_ROOT "apt-get install --yes --force-yes $*"
+	$CHROOTCMD_ROOT "apt-get clean"
 }
 
 # 4.5. create a user for building
 add_user() {
 	echo "=== add_user ==="
-	if ! grep -q build $TARGET/etc/passwd; then
-		$ROOTCMD chroot $TARGET /usr/sbin/adduser --home /build --uid $UID --disabled-password --disabled-login --gecos 'Build user' build
+	if ! grep -q build $WORK_DIR/etc/passwd; then
+		$CHROOTCMD_ROOT "/usr/sbin/adduser --home /build --uid $UID --disabled-password --disabled-login --gecos 'Slind build user' build"
 		# 4.6. configure sudo
-		$ROOTCMD chroot $TARGET su - -c "echo 'build ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+		$CHROOTCMD_ROOT "su - -c \"echo 'build ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers\""
 	fi
 }
 
 # 4.6. configure grasp and friends
 configure_tools() {
-	GRASP_CONFIG="$TARGET/build/.grasp"
+	GRASP_CONFIG="$WORK_DIR/build/.grasp"
 	: > $GRASP_CONFIG
-	echo "gitbase_url $GITBASE_URL"   >> $GRASP_CONFIG
-	echo "gitrepos_dir $GITREPOS_DIR" >> $GRASP_CONFIG
-	echo "tarballs_dir $TARBALLS_DIR" >> $GRASP_CONFIG
-	echo "reget_grasp yes"            >> $GRASP_CONFIG
-	echo "output_dir $GRASP_REPO"     >> $GRASP_CONFIG
-	echo "repo_format 2"              >> $GRASP_CONFIG
+	echo "gitbase_url $GITBASE_URL"       >> $GRASP_CONFIG
+	echo "gitrepos_dir $CHR_GITREPOS_DIR" >> $GRASP_CONFIG
+	echo "tarballs_dir $CHR_TARBALLS_DIR" >> $GRASP_CONFIG
+	echo "reget_grasp yes"                >> $GRASP_CONFIG
+	echo "output_dir $CHR_REPODIR"        >> $GRASP_CONFIG
+	echo "repo_format 2"                  >> $GRASP_CONFIG
 }
 
 # 6. bootstrap i386 rootfs
 bootstrap_host() {
+	local _debootstrap_script
+
 	echo "=== bootstrap host ==="
-	[ -f $TARGET/slind/$SUITE ] || $ROOTCMD cp ./$SUITE $TARGET/slind
-	$ROOTCMD mkdir -p $TARGET/rootfs-$HOSTARCH
-	$ROOTCMD chroot $TARGET debootstrap $SUITE /rootfs-$HOSTARCH $SLIND_REPO /slind/$SUITE
-	$ROOTCMD chmod u+s $TARGET/rootfs-$HOSTARCH/sbin/ldconfig
+
+	_debootstrap_script=/usr/lib/slind-core/debootstrap/$SLIND_SUITE
+
+	if [ ! -f $WORK_DIR/$_debootstrap_script ]; then
+	    yell "ERROR: can't find debootstrap script for $SLIND_SUITE at $_debootstrap_script"
+	    exit 1
+	fi
+
+	$ROOT_CMD mkdir -p $WORK_DIR/rootfs-$HOSTARCH
+	$CHROOTCMD_ROOT "debootstrap $SLIND_SUITE /rootfs-$HOSTARCH $SLIND_MIRROR $_debootstrap_script"
+
+	# suid ldconfig binary, otherwise we won't be able to run it as build
+	# user inside chroot.
+	$ROOT_CMD chmod u+s $WORK_DIR/rootfs-$HOSTARCH/sbin/ldconfig
 }
 
 # 7. bootstrap $ARCH rootfs
@@ -147,15 +267,18 @@ bootstrap_target() {
 	echo "=== bootstrap_target ==="
 
 	local ARCH
+	local _target_apt
 
-	for ARCH in $ARCHES; do
-		$ROOTCMD mkdir -p $TARGET/rootfs-$ARCH
-		$ROOTCMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $TARGET/etc/cross-shell.conf
-		$ROOTCMD sed -ie "s,^REPO=.*$,REPO=$SLIND_REPO," $TARGET/etc/cross-shell.conf
-		$ROOTCMD chown -R $UID:$UID $TARGET/rootfs-$ARCH
-		$CHROOTCMD "cross-shell bs"
-		$CHROOTCMD "cross-shell apt $TARGET_APT"
-		$CHROOTCMD "cross-shell pack"
+	_target_apt=`conf_get_var_relaxed $SLIND_CONFIG target addon_packages`
+
+	for ARCH in $TARGET_ARCHES; do
+		$ROOT_CMD mkdir -p $WORK_DIR/rootfs-$ARCH
+		$ROOT_CMD sed -ie "s/^ARCH=.*$/ARCH=$ARCH/" $WORK_DIR/etc/cross-shell.conf
+		$ROOT_CMD sed -ie "s,^REPO=.*$,REPO=$SLIND_MIRROR," $WORK_DIR/etc/cross-shell.conf
+		$ROOT_CMD chown -R $UID:$UID $WORK_DIR/rootfs-$ARCH
+		$CHROOTCMD_BUILD "cross-shell bs"
+		[ -n "_target_apt" ] && $CHROOTCMD_BUILD "cross-shell apt $_target_apt"
+		$CHROOTCMD_BUILD "cross-shell pack"
 	done
 }
 
@@ -163,34 +286,38 @@ case "$1" in
 	setup)
 		[ -n "$SKIP_LIST" ] && echo "WARNING!!! Skipping broken packages: $SKIP_LIST" >&2
 		dev_bootstrap
+		copy_slind_core
 		configure_target
 		copy_tools
 		configure_apt
-		dev_install $PKGLIST
+		dev_install $BASE_HST_PKG_LIST
 		add_user
 		configure_tools
 		;;
 	bootstrap)
+		copy_tools
 		bootstrap_host
 		bootstrap_target
 		;;
 	maintainer-setup)
 		dev_bootstrap
+		copy_slind_core
 		configure_target
 		copy_tools
 		configure_apt
-		dev_install $MAINTAINER_PKGLIST
+		dev_install $BASE_HST_MAINT_PKG_LIST
 		add_user
 		configure_tools
 		;;
 	maintainer-build)
 		$PRE_SLINDJOB_HOOK
 		set -e
-		sh /usr/lib/slind-core/slind-host-tools-bootstrap --build
-		$CHROOTCMD "$CHROOTENV slindjob"
-		$CHROOTCMD "sudo apt-get update"
+		$CHROOTCMD_ROOT "/bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build"
+		
+		$CHROOTCMD_BUILD "$CHROOTENV slindjob"
+		$CHROOTCMD_ROOT  "$CHROOTENV apt-get update"
 		for ARCH in $ARCHES; do
-			$CHROOTCMD "$CHROOTENV REPODIR=$GRASP_REPO mktpkg $ARCH $SUITE"
+			$CHROOTCMD_BUILD "$CHROOTENV REPODIR=$CHR_REPODIR mktpkg $ARCH $SLIND_SUITE"
 		done
 		set +e
 		$POST_SLINDJOB_HOOK

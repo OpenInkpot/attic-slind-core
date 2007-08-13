@@ -2,14 +2,14 @@
 # pools, packages, indices, overrides and whatnot.
 
 # Before sourcing this file, make sure you have set:
-# * REPODIR    -- root of your package repository
-# * DEVSUITE   -- name of 'CURRENT' suite, e.g. 'clydesdale'
-# * ARCHES     -- list of supported architectures
-# * COMPONENTS -- list of available components
+# * CHR_REPODIR -- root of your package repository
+# * DEVSUITE    -- name of 'CURRENT' suite, e.g. 'clydesdale'
+# * ARCHES      -- list of supported architectures
+# * COMPONENTS  -- list of available components
 
-DISTSDIR="$REPODIR/dists"
-POOLDIR="$REPODIR/pool"
-IDXDIR="$REPODIR/indices"
+DISTSDIR="$CHR_REPODIR/dists"
+POOLDIR="$CHR_REPODIR/pool"
+IDXDIR="$CHR_REPODIR/indices"
 OVERRIDES_DB="$IDXDIR/overrides.db"
 SQLCMD="sqlite3 $OVERRIDES_DB"
 
@@ -396,7 +396,7 @@ deb_cache() {
 	done
 
 	# return destination path 
-	echo "$REPODIR/$_pool_path"
+	echo "$CHR_REPODIR/$_pool_path"
 }
 
 # output package's information (control) for Packages file
@@ -446,11 +446,11 @@ make_Packages() {
 }
 
 test_sanity() {
-	if [ -z "${REPODIR}" ];then
-		yell "REPODIR is not set"
+	if [ -z "${CHR_REPODIR}" ];then
+		yell "CHR_REPODIR is not set"
 		exit 1
 	fi
-	[ -d "${REPODIR}" ] || yell "WARNING: IDXDIR=${REPODIR} does not exist"
+	[ -d "${CHR_REPODIR}" ] || yell "WARNING: IDXDIR=${CHR_REPODIR} does not exist"
 	if [ -z "${IDXDIR}" ];then
 		yell "IDXDIR is not set"
 		exit 1

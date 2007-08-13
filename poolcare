@@ -1,19 +1,16 @@
 #!/bin/bash
 
-SUITES="clydesdale percheron attic"
-DEVSUITE="clydesdale"
-COMPONENTS="broken host-tools core gui security debug"
-
-SLIND_CONFIG=~/.slind-config
-if [ -f $SLIND_CONFIG ]; then
-	. $SLIND_CONFIG
+LIBUTILS=/usr/lib/slind-core/libutils.sh
+if [ -f "$LIBUTILS" ]; then
+	. $LIBUTILS
 else
-	echo "Can't open $SLIND_CONFIG"
+	echo "Error: can't load library $LIBUTILS"
 	exit 1
 fi
-ARCHES="arm powerpc i386 mips mipsel sh4 uclibc-arm uclibc-powerpc uclibc-i386 uclibc-mips uclibc-mipsel uclibc-sh4 sh4a uclibc-sh4a"
-REPODIR="$GRASP_REPO"
-[ -n "$REPODIR" ] || REPODIR="$HOME/grasp-out"
+
+load_slind_config_common
+load_slind_config_maintainer_common
+load_suites_config
 
 LIBRARY=/usr/lib/slind-core/libpoolcare.sh
 if [ -f "$LIBRARY" ]; then
@@ -22,6 +19,7 @@ else
 	echo "Error: can't load library $LIBRARY"
 	exit 1
 fi
+
 
 check_suites() {
 	local _suite
@@ -81,6 +79,7 @@ scan_all_dsc() {
 	local _suite
 	local _component
 	local _dscfile
+	local _suite_comp
 
 	echo "=========================="
 	echo "# Creating .dsc indexes"
@@ -88,6 +87,9 @@ scan_all_dsc() {
 
 	# create predefined src indexes
 	for _suite in $SUITES; do
+		# Do we have components overrided for this suite?
+		load_suites_config $_suite
+		
 		for _component in $COMPONENTS; do
 			if [ ! -d "$DISTSDIR/$_suite/$_component/source" ]; then
 				mkdir -p "$DISTSDIR/$_suite/$_component/source"
@@ -108,6 +110,7 @@ scan_all_deb() {
 	local _suite
 	local _index_arch
 	local _debfile
+	local _suite_arches
 
 	echo "========================="
 	echo "# Rebuilding binary cache"
@@ -130,6 +133,8 @@ scan_all_deb() {
 	echo "=========================="
 
 	for _suite in $SUITES; do
+		# Do we have arches overrided for this suite?
+		load_suites_config $_suite
 		for _index_arch in $ARCHES; do
 			make_Packages "$_suite" "$_index_arch"
 		done

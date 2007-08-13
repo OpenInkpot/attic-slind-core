@@ -1,29 +1,9 @@
 #!/bin/sh
 
-SLINDJOB_CONFIG=~/.slindjob-config
-SLIND_CONFIG=~/.slind-config
-if [ ! -f "$SLINDJOB_CONFIG" ]; then
-	echo -n "Configuration file $SLINDJOB_CONFIG not found, "
-	echo "creating one for you"
-	cp /etc/slindjob-config "$SLINDJOB_CONFIG"
-fi
 
 LOGFILE="/tmp/slindjob-`date +%C%y%m%d_%H%M`"
-if [ -f "$SLINDJOB_CONFIG" ]; then
-	. "$SLINDJOB_CONFIG"
-else
-	echo "Failed to open config file $SLINDJOB_CONFIG"
-	exit 1
-fi
-
-if [ -f "$SLIND_CONFIG" ]; then
-	. "$SLIND_CONFIG"
-else
-	echo "Failed to open config file $SLIND_CONFIG"
-	exit 1
-fi
-
 REPORTFILE=/tmp/slindjob_maillog
+
 if [ ! -f /usr/lib/slind-core/logging.sh ]; then
 	echo "Can't open logging library"
 	exit 1
@@ -31,10 +11,24 @@ else
 	. /usr/lib/slind-core/logging.sh
 fi
 
+LIBUTILS=/usr/lib/slind-core/libutils.sh
+if [ -f "$LIBUTILS" ]; then
+	. $LIBUTILS
+else
+	echo "Error: can't load library $LIBUTILS"
+	exit 1
+fi
+
+load_slind_config_common
+load_slind_config_maintainer_common
+load_suites_config $SLIND_SUITE
+
+CHR_PKGLIST_DIR=`conf_get_var_strict $SLIND_CONFIG slindjob chr_pkglist_dir`
+
 # Update all local packages' repos and build source packages
 update_all()
 {
-	cat `find $PKGLIST_DIR -type f -name '*.pkglist'` | while read pkg; do
+	cat `find $CHR_PKGLIST_DIR -type f -name '*.pkglist'` | while read pkg; do
 		echo "============================================="
 		echo "# Updating local repository for $pkg"
 		echo "============================================="
@@ -55,19 +49,19 @@ update_all
 logcmd poolcare "updating repository indices"
 logcmd "slind-host-tools-bootstrap --chroot-build" "rebuilding host-tools"
 for ARCH in $ARCHES; do
-	logcmd "$CHROOTENV mktpkg $ARCH $SUITE" "building $ARCH cross-toolchain"
+	logcmd "$CHROOTENV mktpkg $ARCH $SLIND_SUITE" "building $ARCH cross-toolchain"
 	if [ "$LASTSTATUS" = "0" ]; then
 		for pkg in `ls /tmp/tpkg/*.deb`; do
-			logcmd "pool-injectdeb $pkg $SUITE" "moving `basename $pkg` to repository"
+			logcmd "pool-injectdeb $pkg $SLIND_SUITE" "moving `basename $pkg` to repository"
 		done
 	fi
 done
 
 for ARCH in $ARCHES; do
-	logcmd "$CHROOTENV nc update --arch $ARCH --path $REPODIR" "updating $ARCH indices"
+	logcmd "$CHROOTENV nc update --arch $ARCH --path $CHR_REPODIR" "updating $ARCH indices"
 	if [ "$LASTSTATUS" = "0" ]; then
-		cat $PKGLIST_DIR/all.pkglist | while read pkg; do
-			logcmd "$CHROOTENV nc build $pkg --arch $ARCH --path $REPODIR" \
+		cat $CHR_PKGLIST_DIR/all.pkglist | while read pkg; do
+			logcmd "$CHROOTENV nc build $pkg --arch $ARCH --path $CHR_REPODIR" \
 				"building $pkg for $ARCH"
 		done
 	fi

@@ -300,6 +300,9 @@ case "$1" in
 		bootstrap_host
 		bootstrap_target
 		;;
+	chroot)
+		$CHROOTCMD_BUILD "$CHROOTENV /bin/sh"
+		;;
 	maintainer-setup)
 		dev_bootstrap
 		copy_slind_core
@@ -324,7 +327,7 @@ case "$1" in
 		$POST_SLINDJOB_HOOK
 		;;
 	*)
-		echo "Usage: `basename $0` {setup|bootstrap|maintainer-setup|maintainer-build}"
+		echo "Usage: `basename $0` {setup|bootstrap|chroot|maintainer-setup|maintainer-build}"
 		exit 1
 		;;
 esac

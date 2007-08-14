@@ -147,8 +147,8 @@ copy_slind_core() {
 	$ROOT_CMD dpkg --root=$WORK_DIR -i $_dir/slind-core*.deb
 	$ROOT_CMD rm -rf $_dir
 	# Move backups back.
-	[ -n "$_tmpfile1"] && $ROOT_CMD mv $_tmpfile1 $SLIND_DEF_CONFIG
-	[ -n "$_tmpfile2"] && $ROOT_CMD mv $_tmpfile2 $SLIND_SUITES_DEF_CONFIG
+	[ -n "$_tmpfile1" ] && $ROOT_CMD mv $_tmpfile1 $SLIND_DEF_CONFIG
+	[ -n "$_tmpfile2" ] && $ROOT_CMD mv $_tmpfile2 $SLIND_SUITES_DEF_CONFIG
 	if [ "$?" != "0" ]; then
 		echo "Failed to copy installed slind-core package to $WORK_DIR chroot"
 		exit 1

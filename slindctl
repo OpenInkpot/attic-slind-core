@@ -144,15 +144,16 @@ copy_slind_core() {
 	popd
 	_depends=`dpkg-deb -f $_dir/slind-core*.deb Depends | sed -e "s/,/ /g"`
 	$CHROOTCMD_ROOT "apt-get install --yes --force-yes $_depends"
-	$ROOT_CMD dpkg --root=$WORK_DIR -i $_dir/slind-core*.deb
-	$ROOT_CMD rm -rf $_dir
 	# Move backups back.
 	[ -n "$_tmpfile1" ] && $ROOT_CMD mv $_tmpfile1 $SLIND_DEF_CONFIG
 	[ -n "$_tmpfile2" ] && $ROOT_CMD mv $_tmpfile2 $SLIND_SUITES_DEF_CONFIG
+	$ROOT_CMD dpkg --root=$WORK_DIR -i $_dir/slind-core*.deb
 	if [ "$?" != "0" ]; then
 		echo "Failed to copy installed slind-core package to $WORK_DIR chroot"
+		$ROOT_CMD rm -rf $_dir
 		exit 1
 	fi
+	$ROOT_CMD rm -rf $_dir
 }
 
 # 1.5. configure target

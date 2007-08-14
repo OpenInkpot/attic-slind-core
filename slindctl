@@ -174,9 +174,7 @@ copy_slind_core() {
 	fi
 
 	_dir=`mktemp -d`
-	pushd $_dir
-	$ROOT_CMD dpkg-repack slind-core
-	popd
+	(cd $_dir && $ROOT_CMD dpkg-repack slind-core)
 	_depends=`dpkg-deb -f $_dir/slind-core*.deb Depends | sed -e "s/,/ /g"`
 	$CHROOTCMD_ROOT "apt-get install --yes --force-yes $_depends"
 	# Move backups back.

@@ -1,4 +1,37 @@
 #!/bin/sh
+
+# This tool is a main interface to Slind for users and developers. So, it has
+# two main modes of operation, user and maintainer. The following commands are
+# provided for user:
+#
+# setup
+#   Create Slind chroot and install toolchains for selected architectures
+#   ($target_arch variable in slind-config.ini); all will be done from existing
+#   binary packages and repositories, configured in your /etc/apt/sources.list
+#   (make sure that Slind is there)
+#
+# bootstrap
+#   Create target root filesystems for $target_arch from binary packages,
+#   provided in Slind repository
+#
+# chroot
+#   Change to Slind environment - simply execute chroot with correct user and
+#   required configuration options
+#
+# Simple interface is also provided for Slind maintainers to perform regular
+# tasks, such as rebuilding a list of architectures from git and creating of
+# Slind repository:
+#
+# maintainer-setup
+#   Create empty Slind chroot environment (regular Debian etch at the time of
+#   writting), normally only plain Debian packages are needed for it
+#
+# maintainer-build
+#   Fetch all sources form Slind git; fetch all source tarballs; create source
+#   deb's out of it; build toolchains for $target_arch; build all binary
+#   packages for $target_arch; create brand new local Slind repository from it
+#
+
 set -x
 
 LIBUTILS=/usr/lib/slind-core/libutils.sh

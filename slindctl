@@ -319,7 +319,7 @@ bootstrap_host() {
 	fi
 
 	$ROOT_CMD mkdir -p $WORK_DIR/rootfs-$HOSTARCH
-	$CHROOTCMD_ROOT "debootstrap $SLIND_SUITE /rootfs-$HOSTARCH $SLIND_MIRROR $_debootstrap_script"
+	$CHROOTCMD_ROOT "debootstrap --components=core $SLIND_SUITE /rootfs-$HOSTARCH $SLIND_MIRROR $_debootstrap_script"
 
 	# suid ldconfig binary, otherwise we won't be able to run it as build
 	# user inside chroot.

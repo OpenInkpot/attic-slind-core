@@ -30,7 +30,7 @@ load_slind_config_common() {
 	if [ -f "$SLIND_DEF_CONFIG" ]; then
 	    SLIND_CONFIG=$SLIND_DEF_CONFIG
 	else
-	    yell "ERROR: Cannot open configuration file, slind-config.ini"
+	    yell "ERROR: Cannot open configuration file, slind-config.ini."
 	    exit 1
 	fi
     fi
@@ -88,7 +88,7 @@ load_suites_config() {
 conf_get_var_strict() {
     # Get the value of the variable from the config file.
     # This function is strict, that is, if the parameter is missing, it produces
-    # an error message.
+    # an error message and kills that parent (*evil grin*).
 
     # Arguments:
     #	    $1 -- config file
@@ -103,6 +103,9 @@ conf_get_var_strict() {
 
     [ -n "$_value" ] || {
 	yell "ERROR: $_param is not set in section $_section of $_file."
+	# Father! Yes, son? I'd like to kill you.
+	kill -INT $PPID
+	exit 1
     }
     echo $_value
 }

@@ -148,3 +148,25 @@ EOF
     progress $bases $bases INSTBASE "Installing base system" #40
     info BASESUCCESS "Base system installed successfully."
 }
+
+# original version of this function hardcodes COMPONENTS=main
+download_main_indices () {
+  local m1=${MIRRORS%% *}
+  progress 0 100 DOWNMAINPKGS "Downloading Packages file"
+  progress_next 100
+  COMPONENTS="`echo $USE_COMPONENTS | sed 's/|/ /'`"
+  export COMPONENTS
+  for m in $MIRRORS; do
+    for c in $COMPONENTS; do
+      local path="dists/$SUITE/$c/binary-$ARCH/Packages"
+      local pkgdest="$TARGET/$($DLDEST pkg $SUITE $c $ARCH $m $path)"
+      if [ -x /bin/gunzip ] && get "$m/${path}.gz" "${pkgdest}.gz"; then
+        rm -f ${pkgdest}
+        gunzip ${pkgdest}.gz
+      elif get "$m/$path" "$pkgdest"; then
+        true
+      fi
+    done
+  done
+  progress 100 100 DOWNMAINPKGS "Downloading Packages file"
+}

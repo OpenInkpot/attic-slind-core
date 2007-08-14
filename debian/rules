@@ -35,6 +35,7 @@ binary-arch: install
 	mkdir -p $(dir_slind-core)/usr/bin
 	mkdir -p $(dir_slind-core)/etc/slind
 	mkdir -p $(dir_slind-core)/usr/lib/slind-core
+	mkdir -p $(dir_slind-core)/usr/lib/slind-core/debootstrap
 	cp slindctl $(dir_slind-core)/usr/bin
 	cp pget.awk $(dir_slind-core)/usr/bin/pget
 	cp slind-config.ini $(dir_slind-core)/etc/slind/slind-config.ini
@@ -43,6 +44,7 @@ binary-arch: install
 	cp libutils.sh $(dir_slind-core)/usr/lib/slind-core
 	cp slind-host-tools-bootstrap $(dir_slind-core)/usr/lib/slind-core
 	cp logging.sh $(dir_slind-core)/usr/lib/slind-core
+	cp debootstrap/clydesdale $(dir_slind-core)/usr/lib/slind-core/debootstrap
 
 	# slind-maintainer-core
 	mkdir -p $(dir_slind-maintainer-core)/usr/bin

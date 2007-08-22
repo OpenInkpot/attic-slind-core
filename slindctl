@@ -222,11 +222,12 @@ configure_apt() {
 	    yell "ERROR: can't create temporary file"
 	    exit 1
 	}
-	
 	_tmpfile_apt_pref=`mktemp` || {
 	    yell "ERROR: can't create temporary file"
 	    exit 1
 	}
+
+	chmod 644 $_tmpfile $_tmpfile_apt_pref
 
 	load_suites_config $SLIND_SUITE
 
@@ -261,11 +262,11 @@ configure_apt_init() {
 	    yell "ERROR: can't create temporary file"
 	    exit 1
 	}
-
+	chmod 644 $_tmpfile
 	echo "=== configure_apt_init ==="
 	echo "deb $DEBIAN_MIRROR $DEBIAN_SUITE main" > $_tmpfile
 	echo "deb file://$CHR_REPODIR $SLIND_SUITE host-tools" >> $_tmpfile
-	echo "deb-src file://$CHR_REPODIR $SLIND_SUITE host-tools core gui security debug" >> $_tmpfile
+	echo "deb-src file://$CHR_REPODIR $SLIND_SUITE $COMPONENTS" >> $_tmpfile
 
 	$ROOT_CMD mv $_tmpfile $WORK_DIR/etc/apt/sources.list
 	set +e

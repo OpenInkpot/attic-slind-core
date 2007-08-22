@@ -21,7 +21,7 @@ mkoverrides() {
 		version varchar NOT NULL,
 		suite char(24) NOT NULL,
 		arch char(32) NOT NULL,
-		component varchar NOT NULL, UNIQUE (pkgname, version, suite, arch));
+		component varchar NOT NULL, UNIQUE (pkgname, version, suite, arch, component));
 		
 		create table binary_cache (
 		pkgname varchar NOT NULL,
@@ -35,7 +35,7 @@ mkoverrides() {
 		deb_md5sum char(32) NOT NULL,
 		deb_control text NOT NULL,
 		deb_section varchar NOT NULL,
-		UNIQUE (pkgname, suite, index_arch, deb_name, deb_section));
+		UNIQUE (pkgname, suite, index_arch, component, deb_name, deb_section));
 		"
 }
 

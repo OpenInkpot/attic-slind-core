@@ -2,24 +2,29 @@
 set -x
 
 LIBUTILS=/usr/lib/slind-core/libutils.sh
-if [ -f "$LIBUTILS" ]; then
-	. $LIBUTILS
-else
-	echo "Error: can't load library $LIBUTILS"
-	exit 1
-fi
+LIBRARY=/usr/lib/slind-core/libpoolcare.sh
+
+# Another die implementation
+die() {
+	local error_msg="$@"
+	echo "E: $error_msg" >&2
+	exit 2
+}
+
+info() {
+	local error_msg="$@"
+	echo "I: $error_msg"
+}
+
+[ -f "$LIBUTILS" ] || die  "can't load library $LIBUTILS"
+. $LIBUTILS
 
 load_slind_config_common
 load_slind_config_maintainer_common
 load_suites_config
 
-LIBRARY=/usr/lib/slind-core/libpoolcare.sh
-if [ -f "$LIBRARY" ]; then
-	. $LIBRARY
-else
-	echo "Error: can't load library $LIBRARY"
-	exit 1
-fi
+[ -f "$LIBRARY" ] || die "can't load library $LIBRARY"
+. $LIBRARY
 
 SCRIPT_NAME=`basename $0`
 
@@ -55,14 +60,51 @@ build_package() {
 	cd $BUILDDIR
 	fakeroot apt-get source --compile $pkgname=$version
 	if [ "$?" != "0" ]; then
-		echo "Error: Failed to build $pkgname package"
-		exit
+		die "Failed to build $pkgname package"
 	fi
+}
+
+# This code is somewhat ugly, but we need to live here
+# with minimal set of tools - these, which come with etch.
+
+fetch_grasp_git() {
+
+cd $BUILDDIR
+
+if [ -d grasp -a grasp/.git ]; then
+        cd grasp && git pull || die "Unable to pull from repo"
+        cd ..
+else
+        # We assume here that master branch is what we want
+        # This way we could handle both ssh:// and http:// repos.
+        # If we are going to parse grasp files, then we have to use http-only
+        # repo URL.
+        git clone ${GITBASE_URL}/grasp.git grasp
+        [ -d grasp -a grasp/.git ] || die "Something wicked happened during git clone"
+fi
+}
+
+build_grasp_git() {
+
+	local version="`override_get_pkg_version $pkgname $SLIND_SUITE`"
+
+	cd $BUILDDIR
+	cd grasp && [ -f debian/rules ] && {
+		fakeroot make -f debian/rules binary || die "E: Unable to build grasp package"
+		grasp_version=`head -n 1 debian/changelog|sed -e 's@.*(\(.*\)).*@\1@g'`
+		if [ -n "$grasp_version" ]; then
+			$ROOT_CMD dpkg -i ../grasp_${grasp_version}_*.deb || \
+				die "grasp installation failed"
+		else
+			die "Bad grasp version"
+		fi
+	}
+	[ "$?" != "0" ] && die "failed to get into grasp repository dir onbootstrap"
 }
 
 # 1. get overrides.db
 get_overrides_db() {
-	echo "=== get overrides.db ==="
+	info "=== get overrides.db ==="
 	
 	# Check if it's a local mirror or not
 	if [ "${SLIND_MIRROR#http*:}" = "$SLIND_MIRROR" -a "${SLIND_MIRROR#ftp:}" = "$SLIND_MIRROR" ]; then
@@ -73,12 +115,18 @@ get_overrides_db() {
 	fi
 
 	[ -f "$OVERRIDES_DB" ] || \
-		curl $SLIND_MIRROR/indices/overrides.db -o $OVERRIDES_DB
-	if [ "$?" != "0" ]; then
-		echo "Error: downloading of $SLIND_MIRROR/indices/overrides.db failed"
-		exit 1
-	fi
-	
+		curl $SLIND_MIRROR/indices/overrides.db -o $OVERRIDES_DB || \
+			die "downloading of $SLIND_MIRROR/indices/overrides.db failed"
+}
+
+#
+#  In this case we have to put overrides.db in home dir of build user.
+#
+get_overrides_db_init() {
+	set +x
+	info "=== get overrides.db (init) ==="
+#	cp ~/overrides.db $OVERRIDES_DB || die "copying to $OVERRIDES_DB failed"
+	set -x
 }
 
 dummy_deliver_cmd() {
@@ -87,6 +135,7 @@ dummy_deliver_cmd() {
 
 	mv "$_pkg" "$CHR_REPODIR"
 }
+
 
 # 2. build base host-tools packages and store them to $CHR_REPODIR
 build_base_host_tools_packages() {
@@ -97,6 +146,26 @@ build_base_host_tools_packages() {
 	for pkgname in $SRC_LIST; do
 		build_package $pkgname
 	done
+}
+refresh_pool() {
+		local _g
+		for _g in $ARCHES; do
+			make_Packages $SLIND_SUITE $_g
+		done
+		scan_all_dsc
+}
+build_base_host_tools_packages_init() {
+	echo "=== building base host-tools packages (with grasp) ==="
+
+	local pkgname
+
+	for pkgname in $SRC_LIST; do
+		grasp getpkg $pkgname || die "Unable to 'grasp getpkg' package $pkgname"
+		grasp build $pkgname || die "Unable to 'grasp build' package $pkgname"
+	done
+	refresh_pool
+	$ROOT_CMD apt-get update || die "Could not update apt lists"
+	build_base_host_tools_packages
 }
 
 # 3. install base host-tool packages from $POOLDIR
@@ -111,8 +180,8 @@ install_base_host_tools_packages() {
 		pkglist="$pkglist ${pkgname}_*.deb"
 	done
 	( cd $BUILDDIR && \
-	sudo dpkg -i $pkglist && \
-	sudo apt-get -f install --yes --force-yes )
+	$ROOT_CMD dpkg -i $pkglist && \
+	$ROOT_CMD apt-get -f install --yes --force-yes )
 }
 
 # 4. build toolchain packages and store them to $POOLDIR
@@ -140,21 +209,37 @@ deliver_packages() {
 }
 
 case "$1" in
-	--build)
+	--initialize-pool)
+		# Our repository is initially empty, so lets generate indexes:
+		# We don't want this to be run as root
+		[ "$UID" -eq "0" ] && die "Never run --initialize-pool as root"
+		refresh_pool
+		;;
+	--build|--build-init)
+		[ "$UID" -eq "0" ] && die "Never run --build or --build-init as root"
 		# Set up ^C handler
 		trap cleanup INT
 
 		cleanup "force"
-		
-		echo "=== start toolchain building ==="
-		mkdir -p $IDXDIR
 		mkdir -p $BUILDDIR
+		mkdir -p $IDXDIR
 		mkdir -p $POOLDIR
 
-		$ROOT_CMD apt-get update
+		info "=== start toolchain building ==="
 
-		get_overrides_db
-		build_base_host_tools_packages
+		case $1 in
+			--build)
+				$ROOT_CMD apt-get update
+				get_overrides_db
+				build_base_host_tools_packages
+			;;
+			--build-init)
+				get_overrides_db_init
+				fetch_grasp_git
+				build_grasp_git
+				build_base_host_tools_packages_init
+			;;
+		esac
 		install_base_host_tools_packages
 		deliver_packages $CHR_REPODIR
 
@@ -171,8 +256,9 @@ case "$1" in
 		cleanup
 		echo "Done: check the chroot dir $POOLDIR for ready packages."
 		;;
+
 	*)
-		echo "Usage: $SCRIPT_NAME --build ARCHES"
+		echo "Usage: $SCRIPT_NAME { --initialize-pool | { --build | --build-init } [ARCHES] }"
 		exit 1
 		;;
 esac

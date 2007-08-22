@@ -474,3 +474,73 @@ test_sanity() {
 		exit 1
 	fi
 }
+
+# Process a .dsc file.
+# $1 -- path to .dsc file
+# This is a do-it-all function for one source package.
+scan_just_one_dsc() {
+	local _dscfile="$1"
+	local _path_list
+	local _path
+	local _result
+
+	local _pkgname="`grep '^Source: ' $_dscfile | cut -d' ' -f2`"
+	local _pkgver="`grep '^Version: ' $_dscfile | cut -d' ' -f2`"
+	local _pkgcomp="`grep '^Section: ' $_dscfile | cut -d' ' -f2`"
+
+	[ -n "$_pkgcomp" ] || _pkgcomp='broken'
+	echo $COMPONENTS | egrep "\<$_pkgcomp\>" >/dev/null || _pkgcomp='broken'
+
+	# check with overrides db
+	_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
+	if [ -z "$_path_list" ]; then
+		_result=`override_try_add_package $_pkgname $_pkgver $DEVSUITE $_pkgcomp`
+		if [ "$_result" != "OK" ]; then
+			yell "WARNING: cannot add source package $_pkgname=$_pkgver in" -n
+			yell "overrides table, ignore this package for now"
+			return
+		fi
+		_path_list=`override_get_src_poolpath_list $_pkgname $_pkgver`
+		if [ -z "$_path_list" ]; then
+			yell "WARNING: can't index source package $_pkgname=$_pkgver"
+			return
+		fi
+	fi
+
+	for _path in $_path_list; do
+		# write a source entry to Sources file
+		dsc_to_Sources "$_dscfile" "$_path"
+	done
+}
+
+scan_all_dsc() {
+	local _suite
+	local _component
+	local _dscfile
+	local _suite_comp
+
+	echo "=========================="
+	echo "# Creating .dsc indexes"
+	echo "=========================="
+
+	# create predefined src indexes
+	for _suite in $SUITES; do
+		# Do we have components overrided for this suite?
+		load_suites_config $_suite
+
+		for _component in $COMPONENTS; do
+			if [ ! -d "$DISTSDIR/$_suite/$_component/source" ]; then
+				mkdir -p "$DISTSDIR/$_suite/$_component/source"
+			fi
+			: > "$DISTSDIR/$_suite/$_component/source/Sources"
+			gzip -c9 \
+				< "$DISTSDIR/$_suite/$_component/source/Sources" \
+				> "$DISTSDIR/$_suite/$_component/source/Sources.gz"
+		done
+	done
+
+	find "$POOLDIR" -type f -name '*.dsc' | while read _dscfile; do
+		scan_just_one_dsc "$_dscfile"
+	done
+}
+

@@ -36,25 +36,26 @@
 
 set -x
 
+# Another die implementation
+die() {
+	error_msg="$@"
+	echo "E: $error_msg" >&2
+	exit 2
+}
+
 LIBUTILS=/usr/lib/slind-core/libutils.sh
-if [ -f "$LIBUTILS" ]; then
-	. $LIBUTILS
-else
-	echo "Error: can't load library $LIBUTILS"
-	exit 1
-fi
+
+[ -f "$LIBUTILS" ] || die "can't load library $LIBUTILS"
+. $LIBUTILS
 
 load_slind_config_common
 load_slind_config_maintainer_common
 load_suites_config
 
 LIBRARY=/usr/lib/slind-core/libpoolcare.sh
-if [ -f "$LIBRARY" ]; then
-	. $LIBRARY
-else
-	echo "Error: can't load library $LIBRARY"
-	exit 1
-fi
+
+[ -f "$LIBRARY" ] || die "can't load library $LIBRARY"
+. $LIBRARY
 
 TARGET_ARCHES=`conf_get_var_strict $SLIND_CONFIG target target_arch`
 HOSTARCH=`dpkg --print-architecture`
@@ -246,10 +247,39 @@ EOF
 	$CHROOTCMD_ROOT "apt-get update"
 }
 
+configure_apt_debian() {
+	echo "=== configure_apt_debian ==="
+	echo "deb $DEBIAN_MIRROR $DEBIAN_SUITE main" > sources.list
+	echo "deb-src $SLIND_MIRROR $SLIND_SUITE $COMPONENTS" >> sources.list
+
+	$ROOT_CMD mv sources.list $WORK_DIR/etc/apt/sources.list
+	$CHROOTCMD_ROOT "apt-get update"
+}
+
+configure_apt_init() {
+	local _tmpfile
+	_tmpfile=`mktemp` || {
+	    yell "ERROR: can't create temporary file"
+	    exit 1
+	}
+
+	echo "=== configure_apt_init ==="
+	echo "deb $DEBIAN_MIRROR $DEBIAN_SUITE main" > $_tmpfile
+	echo "deb file://$CHR_REPODIR $SLIND_SUITE host-tools" >> $_tmpfile
+	echo "deb-src file://$CHR_REPODIR $SLIND_SUITE host-tools core gui security debug" >> $_tmpfile
+
+	$ROOT_CMD mv $_tmpfile $WORK_DIR/etc/apt/sources.list
+	set +e
+	$CHROOTCMD_ROOT "apt-get update"
+	set -e
+}
+
 # 4. install necessary packages
 dev_install() {
 	echo "=== dev_install ==="
-	$CHROOTCMD_ROOT "apt-get install --yes --force-yes $*"
+	while true; do
+		$CHROOTCMD_ROOT "apt-get install --yes --force-yes $*" && break
+	done
 	$CHROOTCMD_ROOT "apt-get clean"
 }
 
@@ -343,21 +373,34 @@ case "$1" in
 		;;
 	maintainer-setup)
 		dev_bootstrap
+		configure_apt_debian
 		copy_slind_core
 		configure_target
 		copy_tools
-		configure_apt
+		# To have only etch config, so SLIND pool breakage does not
+		# affect maintainer-setup
 		dev_install $BASE_HST_MAINT_PKG_LIST
 		add_user
 		configure_tools
+		# Now we have full APT config.
+		configure_apt
 		;;
-	maintainer-build)
+	maintainer-build|maintainer-build-init)
 		$PRE_SLINDJOB_HOOK
 		set -e
-		$CHROOTCMD_ROOT "/bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build"
-		
+		case $1 in
+			maintainer-build)
+				$CHROOTCMD_BUILD "/bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build"
+			;;
+			maintainer-build-init)
+				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --initialize-pool"
+				configure_apt_init
+				# $CHROOTCMD_ROOT "/bin/sh /usr/lib/slind-core/slind--bootstrap-grasp '' $GITBASE_URL $CHROOTENV"
+				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build-init"
+			;;
+		esac
 		$CHROOTCMD_BUILD "$CHROOTENV slindjob"
-		$CHROOTCMD_ROOT  "$CHROOTENV apt-get update"
+		$CHROOTCMD_ROOT "$CHROOTENV apt-get update"
 		for ARCH in $ARCHES; do
 			$CHROOTCMD_BUILD "$CHROOTENV REPODIR=$CHR_REPODIR mktpkg $ARCH $SLIND_SUITE"
 		done

@@ -81,7 +81,7 @@ override_check_suite() {
 		if (!((arch == "all") || (arch in all_arch)))
 			WARNING("Unknown arch in record (" pkgname ", " version ", " arch ", " component ") for suite " suite);
 
-		arch_count["pkgname:" pkgname ", arch:" arch]++;
+		arch_count["pkgname:" pkgname ", arch:" arch ", component:" component]++;
 		version_count["pkgname:" pkgname ", version:" version] = \
 			or(version_count["pkgname:" pkgname ", version:" version], mask);
 		if (component != comp[pkgname]){
@@ -92,8 +92,6 @@ override_check_suite() {
 	END{
 		for(idx in arch_count) if (arch_count[idx] > 1)
 			ERROR("More than one (" idx ") records found in suite " suite);
-		for(idx in comp_count) if (comp_count[idx] > 1)
-			ERROR("Several different components defined for package " idx " in suite " suite);
 		for(idx in version_count) if (version_count[idx] == 3)
 			WARNING("Some arch records override ALL record for (" idx ") in suite " suite);
 		print error ? "FAIL" : "OK";

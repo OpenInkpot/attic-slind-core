@@ -23,6 +23,11 @@ load_slind_config_common
 load_slind_config_maintainer_common
 load_suites_config $SLIND_SUITE
 
+[ -n "$HTTP_PROXY_URL" ] && PROXYENV="http_proxy=$HTTP_PROXY_URL"
+[ -n "$FTP_PROXY_URL" ]  && PROXYENV="$PROXYENV ftp_proxy=$FTP_PROXY_URL"
+
+CHROOTENV="env $PROXYENV $CHROOTENV"
+
 CHR_PKGLIST_DIR=`conf_get_var_strict $SLIND_CONFIG slindjob chr_pkglist_dir`
 
 # Update all local packages' repos and build source packages

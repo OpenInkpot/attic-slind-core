@@ -32,7 +32,23 @@ if [ -z "$SUITE" ]; then
 	exit 1
 fi
 
-dir=`deb_cache $DEBNAME $SUITE`
+COMPONENT="$3"
+# FIXME:
+# We consider cheating here.
+# A problem:
+# We build both host-tools package from the same source, with dynamic control file,
+# setting proper SLIND_BUILD_OPTIONS.
+# So we have 2 records in our overrides.db when cross=host only differeing in
+# component.
+# We need component to uniquely distinguish our record in binary cache.
+# So we have to do pool-injection at build time.
+
+if [ -z "$COMPONENT" ]; then
+	yell "W: FIXME: empty COMPONENT, defaulting to 'host-tools'"
+	COMPONENT="host-tools"
+fi
+
+dir=`deb_cache $DEBNAME $SUITE $COMPONENT`
 if [ -z "$dir" ]; then
 	yell "WARNING: package $DEBNAME does not match suite=$SUITE, ignore this package"
 	exit 1

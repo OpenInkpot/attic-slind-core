@@ -2,6 +2,7 @@ Source: slind-core
 Section: host-tools
 Maintainer: Alexander Shishkin <virtuoso@slind.org>
 Build-Depends: debhelper (>> 2.0.0)
+Priority: oprional
 Standards-Version: 3.6.2
 
 Package: slind-core

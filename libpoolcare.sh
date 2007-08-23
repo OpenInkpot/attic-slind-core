@@ -354,6 +354,7 @@ get_deb_header() {
 deb_cache() {
 	local _debfile="$1"
 	local _suite="$2"
+	local _component="$3"
 	local _index_arch
 
 	local _size=`du -sb $_debfile | cut -f1`
@@ -378,7 +379,7 @@ deb_cache() {
 	fi
 
 	if [ -z "$_section" ]; then
-		_section=`override_get_pkg_component $_source $_suite`
+		_section=$_component
 	fi
 	if [ "$_arch" = "all" -a "$_section" = "host-tools" ]; then
 		_index_arch_list="$ARCHES"
@@ -390,10 +391,10 @@ deb_cache() {
 
 	for _index_arch in $_index_arch_list; do
 		$SQLCMD "REPLACE INTO binary_cache (
-				pkgname, version, suite, index_arch,
+				pkgname, version, suite, component, index_arch,
 				pool_file, deb_name, deb_arch, deb_section, 
 				deb_size, deb_md5sum, deb_control)
-			VALUES('$_source', '$_version', '$_suite', '$_index_arch',
+			VALUES('$_source', '$_version', '$_suite', '$_component', '$_index_arch',
 				'$_pool_file', '$_name', '$_arch', '$_section',
 				'$_size', '$_md5sum', '$_control')"
 	done

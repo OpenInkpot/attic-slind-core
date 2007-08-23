@@ -241,7 +241,7 @@ case "$1" in
 			;;
 		esac
 		install_base_host_tools_packages
-		deliver_packages $CHR_REPODIR
+		deliver_packages $BUILDDIR
 
 		if [ -z "$2" ]; then
 			echo "Exiting, no arches were specified."
@@ -249,12 +249,13 @@ case "$1" in
 			shift
 			for arch in $@; do
 				build_toolchain $arch
-				deliver_packages $TOOLCHAIN_BUILDDIR
+				deliver_packages $BUILDDIR
 			done
 		fi
 		
 		cleanup
 		echo "Done: check the chroot dir $POOLDIR for ready packages."
+		exit
 		;;
 
 	*)

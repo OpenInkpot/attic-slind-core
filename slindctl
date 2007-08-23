@@ -393,8 +393,8 @@ case "$1" in
 			maintainer-build-init)
 				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --initialize-pool"
 				configure_apt_init
-				# $CHROOTCMD_ROOT "/bin/sh /usr/lib/slind-core/slind--bootstrap-grasp '' $GITBASE_URL $CHROOTENV"
-				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build-init"
+				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build-init" || \
+				    die "Something wicked happend during tools build"
 			;;
 		esac
 		$CHROOTCMD_BUILD "$CHROOTENV slindjob"

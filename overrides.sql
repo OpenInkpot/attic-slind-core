@@ -1,3 +1,6 @@
+-- DON'T MODIFY THIS FILE BY MINDLESS DUMP! YOU WILL LOSE COMMENTS!
+-- TO MODIFY FROM DUMP, COPY-OUT ACTUAL INSERTIONS!
+
 -- overrides.db is a database which purpose is to have fine-grained control over packages.
 
 -- Table overrides controls source packages. Only packages matching
@@ -108,4 +111,102 @@ CREATE TABLE binary_cache (
 		deb_section varchar NOT NULL,
 		UNIQUE (pkgname, suite, index_arch, component, deb_name, deb_section)
 );
+CREATE VIEW bin_packages AS SELECT 'Package: ' || deb_name || X'0A'
+			||'Source: ' || pkgname || X'0A'
+	                ||'Version: ' || version || X'0A'
+			||'Architecture: ' || deb_arch || X'0A'
+			||'Filename: ' || pool_file || X'0A'
+			||'Size: ' || deb_size || X'0A'
+			||'MD5sum: ' || deb_md5sum || X'0A'
+			||'Section: ' || deb_section || X'0A'
+			|| deb_control || X'0A' AS entry, suite, deb_section, index_arch
+	            FROM binary_cache;
+
+-- binary_cache checking triggers for INSERT and UPDATE event.
+-- Try to keep them identical.
+CREATE TRIGGER check_binary_cache_insert BEFORE INSERT ON binary_cache
+FOR EACH ROW
+BEGIN
+	SELECT RAISE(ROLLBACK, 'insert ton table binary_cache violates non-emptiness policy for fields')
+	WHERE NEW.index_arch IS NULL OR trim(NEW.index_arch) = '' OR
+	      NEW.pkgname IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.version IS NULL OR trim(NEW.version) = '' OR
+	      NEW.suite IS NULL OR trim(NEW.suite) = '' OR
+	      NEW.component IS NULL OR trim(NEW.component) = '' OR
+	      NEW.pool_file IS NULL OR trim(NEW.pool_file) = '' OR
+	      NEW.deb_name IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.deb_md5sum IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.deb_size IS NULL OR NEW.deb_size <= 0 OR
+	      NEW.deb_control IS NULL;
+	SELECT RAISE(ROLLBACK, 'primary key violation on table binary_cache')
+	WHERE (SELECT pkgname
+		      FROM overrides
+		      WHERE pkgname=NEW.pkgname AND
+			    version=NEW.version AND suite=NEW.suite)
+	      IS NULL;
+END;
+
+CREATE TRIGGER check_binary_cache_delete BEFORE UPDATE ON binary_cache
+FOR EACH ROW
+BEGIN
+	SELECT RAISE(ROLLBACK, 'insert on table binary_cache violates non-emptiness policy for fields')
+	WHERE NEW.index_arch IS NULL OR trim(NEW.index_arch) = '' OR
+	      NEW.pkgname IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.version IS NULL OR trim(NEW.version) = '' OR
+	      NEW.suite IS NULL OR trim(NEW.suite) = '' OR
+	      NEW.component IS NULL OR trim(NEW.component) = '' OR
+	      NEW.pool_file IS NULL OR trim(NEW.pool_file) = '' OR
+	      NEW.deb_name IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.deb_md5sum IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.deb_size IS NULL OR NEW.deb_size <= 0 OR
+	      NEW.deb_control IS NULL;
+	SELECT RAISE(ROLLBACK, 'primary key violation on table binary_cache')
+	WHERE (SELECT pkgname
+		      FROM overrides
+		      WHERE pkgname=NEW.pkgname AND
+			    version=NEW.version AND suite=NEW.suite)
+	      IS NULL;
+END;
+
+CREATE TRIGGER check_overrides BEFORE INSERT ON overrides
+FOR EACH ROW
+BEGIN
+	SELECT RAISE(ROLLBACK, 'insert on table overrides violates non-emptiness policy for fields')
+	WHERE NEW.pkgname IS NULL OR trim(NEW.pkgname) = '' OR
+	      NEW.version IS NULL OR trim(NEW.version) = '' OR
+	      NEW.suite IS NULL OR trim(NEW.suite) = '' OR
+	      NEW.component IS NULL OR trim(NEW.component) = '' OR
+	      NEW.arch IS NULL OR trim(NEW.arch) = '';
+END;
+
+-- This trigger cleans-up binary_cache table after deletions from overrides.
+CREATE TRIGGER check_overrides_del AFTER DELETE ON overrides
+FOR EACH ROW
+BEGIN
+	DELETE FROM binary_cache
+	WHERE (SELECT pkgname FROM overrides WHERE pkgname=OLD.pkgname
+			      AND version=OLD.version AND suite=OLD.suite) IS NULL
+	AND suite = OLD.suite;
+END;
+
+-- We will use this view for triggers for special operations
+CREATE VIEW src_packages AS SELECT * FROM overrides;
+
+-- On insertion to this view we move old records to attic before.
+CREATE TRIGGER src_upgrade INSTEAD OF INSERT ON src_packages
+FOR EACH ROW
+BEGIN
+		-- Moving old records to attic if only 1 record exists for this suite.
+		-- Assumes we are doing upgrade, not downgrade.
+		-- It is unable to check debian versions.
+		UPDATE overrides SET suite='attic'
+		WHERE (SELECT count(pkgname) FROM overrides WHERE pkgname=NEW.pkgname
+								  AND version=NEW.version
+								  AND suite=NEW.suite) = 1
+		      AND pkgname=NEW.pkgname AND suite=NEW.suite;
+		INSERT INTO overrides(pkgname, version, suite, arch, component)
+		VALUES(NEW.pkgname, NEW.version, NEW.suite, NEW.arch, NEW.component);
+END;
+
 COMMIT;
+

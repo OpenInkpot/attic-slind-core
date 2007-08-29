@@ -237,46 +237,39 @@ override_try_add_package(){
 	local _version="$2"
 	local _suite="$3"
 	local _component="$4"
-	local _tmp_version
 	local _version_count=0
-	local _count=0
 	local _ver
 	local _arch
 	local _comp
-	local _i
-	local _tmpfile1=`mktemp`
+	local _tmpfile=`mktemp`
 	
 
 	# Get (version, arch, component) for required (source, suite) and store
 	# them to separate arrays.
 	$SQLCMD "SELECT version || ' ' || component || ' ' || arch FROM overrides 
 			WHERE pkgname='$_source'
-			AND suite='$_suite'" > $_tmpfile
+			AND suite='$_suite'" > "$_tmpfile"
 
-	cat $_tmpfile | (
-		while read _ver _comp _arch; do
-			# exit, if required version already exist
-			if [ "$_version" = "$_ver" ]; then
-				echo "OK"
-				exit
-			fi
-
-			# collect a number of different versions of package
-			if [ "$_tmp_version" != "$_ver" ]; then
-				_tmp_version="$_ver"
-				_version_count=$((_version_count+1))
-			fi
-
-			_count=$((_count+1))
-		done
-	)
+	# if required version already exist, set $_version_count to "-1"
+	# else get a number of different versions of package
+	if grep "^$_version " "$_tmpfile"; then
+		_version_count="-1"
+	else
+		_version_count=`cut -s -f1 '-d ' "$_tmpfile" | sort | uniq | wc -l`
+	fi
 
 	case "$_version_count" in
+		-1)	# package already exist in overrides, do nothing
+			echo "OK"
+			;;
 		0)	# the package is new, add it to required suite for all arches.
 			override_insert_new_record $_source $_version $_suite '' $_component
 			echo "OK"
 			;;
 		1)	# only one version of package exist
+			# read 1-st line of $_tmpfile to get version from overrides
+			# and compare it with the given version
+			read _ver _comp _arch < "$_tmpfile"
 			dpkg --compare-versions "$_version" gt "$_ver"
 			if [ "$?" = "0" ]; then
 				# the package is newer than current, move older one to "attic"
@@ -285,10 +278,10 @@ override_try_add_package(){
 				# the package is older than current, add it to "attic"
 				_suite="attic"
 			fi
-			cat $_tmpfile | (
-				while read _ver _comp _arch; do
-					override_insert_new_record $_source $_version $_suite "$_arch" $_component
-				done )
+			# add source package to overrides
+			cat $_tmpfile | while read _ver _comp _arch; do
+				override_insert_new_record $_source $_version $_suite "$_arch" $_component
+			done
 			echo "OK"
 			;;
 		*)	# too many versions of package exist, resolve this situation manually

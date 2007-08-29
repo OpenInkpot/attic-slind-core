@@ -28,6 +28,7 @@ mkoverrides() {
 		version varchar NOT NULL,
 		suite char(24) NOT NULL,
 		index_arch char(32) NOT NULL,
+		component varchar NOT NULL,
 		pool_file varchar NOT NULL,
 		deb_name varchar NOT NULL,
 		deb_arch varchar NOT NULL,

@@ -205,7 +205,7 @@ copy_tools() {
 	        echo "Copying local SLIND mirror ($SLIND_MIRROR) to $WORK_DIR/SLIND"
 		SLIND_MIRROR_DIR=${SLIND_MIRROR#file://}
 		$ROOT_CMD mkdir -p $WORK_DIR/SLIND
-		( cd $SLIND_MIRROR_DIR; tar -c * $TAR_OPTS ) | \
+		( cd $SLIND_MIRROR_DIR; tar $TAR_OPTS -c * ) | \
 			$ROOT_CMD tar xf - -C $WORK_DIR/SLIND
 	        # Since SLIND_MIRROR is used inside our working chroot, and we
 		# determined we're using a local directory, override

@@ -369,7 +369,6 @@ case "$1" in
 		configure_tools
 		;;
 	bootstrap)
-		copy_tools
 		bootstrap_host
 		bootstrap_target
 		;;

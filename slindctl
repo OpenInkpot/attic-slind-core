@@ -83,6 +83,9 @@ BASE_HST_MAINT_PKG_LIST=`conf_get_var_strict $SLIND_CONFIG slindctl base_hst_mai
 # Broken packages will be excluded from BASE_HST_PKG_LIST
 BROKEN_HST_PKG_LIST=`conf_get_var_relaxed $SLIND_CONFIG slindctl broken_hst_pkg_list`
 
+# Number of retries for apt (to overcome network failures).
+APT_RETRIES_MAX=`conf_get_var_relaxed $SLIND_CONFIG common apt_retries_max`
+
 # rebuild PKGLIST ignoring packages from BROKEN_HST_PKG_LIST, move ingnored packages to SKIP_LIST
 tmp_LIST=""
 SKIP_LIST=""
@@ -280,9 +283,14 @@ configure_apt_init() {
 
 # 4. install necessary packages
 dev_install() {
+	local _cunt=0
 	echo "=== dev_install ==="
 	while true; do
 		$CHROOTCMD_ROOT "apt-get install --yes --force-yes $*" && break
+		if [ "$((_cunt++))" = "$APT_RETRIES_MAX" ]; then
+			yell "W: apt failed $APT_RETRIES_MAX times in a row, it's not supposed to succeed now"
+			break
+		fi
 	done
 	$CHROOTCMD_ROOT "apt-get clean"
 }

@@ -44,25 +44,6 @@ scan_all_deb() {
 	local _debfile
 	local _suite_arches
 
-	echo "========================="
-	echo "# Rebuilding binary cache"
-	echo "========================="
-
-	# purge binary cache
-	$SQLCMD "DELETE FROM binary_cache"
-
-	# populate binary cache
-	find "$POOLDIR" -type f -name "*.deb" | while read _debfile; do
-		# dirty hack, will fix later
-		_suite=`dirname $_debfile`
-		_suite=`basename $_suite`
-
-		deb_cache "$_debfile" "$_suite" > /dev/null
-	done
-
-	echo "=========================="
-	echo "# Creating .deb indexes"
-	echo "=========================="
 
 	for _suite in $SUITES; do
 		# Do we have arches overrided for this suite?

@@ -86,6 +86,15 @@ EOF
     else
         in_target /sbin/ldconfig
     fi
+    
+    if [ ! -f "$TARGET/sbin/start-stop-daemon" ]; then
+        cat <<EOF >> "$TARGET/sbin/start-stop-daemon"
+#!/bin/sh
+echo "Fake start-stop-daemon for system bootstrap"
+exit 0
+EOF
+        chmod 755 "$TARGET/sbin/start-stop-daemon"
+    fi
 
     DEBIAN_FRONTEND=noninteractive
     export DEBIAN_FRONTEND

@@ -60,9 +60,7 @@ TARGET_ARCHES=`conf_get_var_strict $SLIND_CONFIG target target_arch`
 HOSTARCH=`dpkg --print-architecture`
 TAR_OPTS="--exclude CVS --exclude .svn --exclude .git --exclude _darcs"
 
-# Well, in theory, this package should be made by mktpkg in the course of its
-# action, so there's no need to do it here.
-# TOOLCHAIN_LIST="i386-toolchain"
+TOOLCHAIN_LIST="i386-toolchain"
 
 # List of toolchains that should be installed inside chroot.
 for _a in $TARGET_ARCHES; do

@@ -9,9 +9,9 @@ work_out_debs () {
     }
 
     if doing_variant gnu; then
-        required="base-files base-passwd ash hostname ifupdown iputils-ping libncurses5 mawk mini-coreutils mini-findutils mini-util-linux ncurses-bin net-tools procps sed sysvinit tar gzip grep debianutils libgcc1 sysv-rc initscripts ifupdown-scripts login netbase dpkg miniperl apt"
+        required="base-files base-passwd ash hostname ifupdown iputils-ping libncurses5 mawk mini-coreutils mini-findutils mini-util-linux ncurses-bin net-tools procps sed sysvinit tar gzip grep debianutils libgcc1 sysv-rc initscripts ifupdown-scripts login netbase dpkg miniperl"
     else
-        required="base-files base-passwd busybox libgcc1 sysv-rc initscripts ifupdown-scripts netbase dpkg miniperl apt"
+        required="base-files base-passwd busybox libgcc1 sysv-rc initscripts ifupdown-scripts netbase dpkg miniperl"
     fi
 
     if [ "$ARCH" = "${ARCH#uclibc}" ]; then
@@ -179,4 +179,3 @@ download_main_indices () {
   done
   progress 100 100 DOWNMAINPKGS "Downloading Packages file"
 }
-

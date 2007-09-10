@@ -136,6 +136,6 @@ conf_get_var_relaxed() {
 }
 
 yell() {
-    echo $1
+    echo $1 >&2
 }
 

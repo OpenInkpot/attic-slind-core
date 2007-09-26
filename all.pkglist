@@ -25,3 +25,5 @@ devmapper
 e2fsprogs
 bzip2
 strace
+bash
+procps

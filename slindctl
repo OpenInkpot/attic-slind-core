@@ -27,10 +27,13 @@
 #   Create empty Slind chroot environment (regular Debian etch at the time of
 #   writting), normally only plain Debian packages are needed for it
 #
-# maintainer-build
-#   Fetch all sources form Slind git; fetch all source tarballs; create source
+# maintainer-build-init
+#   Fetch all sources from Slind git; fetch all source tarballs; create source
 #   deb's out of it; build toolchains for $target_arch; build all binary
 #   packages for $target_arch; create brand new local Slind repository from it
+# 
+# maintainer-build
+#   Same as above, but use source packages from Slind pool instead.
 #
 
 #set -x

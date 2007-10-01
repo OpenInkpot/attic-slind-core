@@ -422,9 +422,6 @@ case "$1" in
 		esac
 		$CHROOTCMD_BUILD "$CHROOTENV slindjob"
 		$CHROOTCMD_ROOT "$CHROOTENV apt-get update"
-		for ARCH in $ARCHES; do
-			$CHROOTCMD_BUILD "$CHROOTENV REPODIR=$CHR_REPODIR mktpkg $ARCH $SLIND_SUITE"
-		done
 		set +e
 		$POST_SLINDJOB_HOOK
 		;;

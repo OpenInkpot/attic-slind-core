@@ -52,7 +52,6 @@ update_all()
 logstart "$REPORTFILE"
 update_all
 logcmd poolcare "updating repository indices"
-logcmd "slind-host-tools-bootstrap --chroot-build" "rebuilding host-tools"
 for ARCH in $ARCHES; do
 	logcmd "$CHROOTENV mktpkg $ARCH $SLIND_SUITE" "building $ARCH cross-toolchain"
 	if [ "$LASTSTATUS" = "0" ]; then

@@ -128,7 +128,7 @@ fi
 # 1. bootstrap building environment
 dev_bootstrap() {
 	echo "=== dev_bootstrap ==="
-	$ROOT_CMD debootstrap --variant=buildd $DEBIAN_SUITE $WORK_DIR $DEBIAN_MIRROR
+	$ROOT_CMD $CHROOTENV debootstrap --variant=buildd $DEBIAN_SUITE $WORK_DIR $DEBIAN_MIRROR
 	if [ "$?" != "0" ]; then
 		echo "Failed to bootstrap $DEBIAN_SUITE from $DEBIAN_MIRROR to $WORK_DIR"
 		exit 1

@@ -420,6 +420,7 @@ case "$1" in
 				    die "Something wicked happend during tools build"
 			;;
 		esac
+		$CHROOTCMD_ROOT "$CHROOTENV apt-get update"
 		$CHROOTCMD_BUILD "$CHROOTENV slindjob"
 		$CHROOTCMD_ROOT "$CHROOTENV apt-get update"
 		set +e

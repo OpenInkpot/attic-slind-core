@@ -52,6 +52,8 @@ update_all()
 logstart "$REPORTFILE"
 update_all
 logcmd poolcare "updating repository indices"
+# Grok new indices
+$ROOT_CMD $CHROOTENV apt-get update
 for ARCH in $ARCHES; do
 	logcmd "$CHROOTENV mktpkg $ARCH $SLIND_SUITE" "building $ARCH cross-toolchain"
 	if [ "$LASTSTATUS" = "0" ]; then

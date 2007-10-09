@@ -411,7 +411,7 @@ case "$1" in
 		set -e
 		case $1 in
 			maintainer-build)
-				$CHROOTCMD_BUILD "/bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build"
+				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build"
 			;;
 			maintainer-build-init)
 				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --initialize-pool"

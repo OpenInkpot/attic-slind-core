@@ -215,6 +215,7 @@ case "$1" in
 		# We don't want this to be run as root
 		[ "$UID" -eq "0" ] && die "Never run --initialize-pool as root"
 		get_overrides_db
+		mkdir -p $BUILDDIR
 		fetch_package_git slindak
 		build_package_git slindak
 		refresh_pool

@@ -71,39 +71,38 @@ build_package() {
 # This code is somewhat ugly, but we need to live here
 # with minimal set of tools - these, which come with etch.
 
-fetch_grasp_git() {
-
-cd $BUILDDIR
-
-if [ -d grasp -a grasp/.git ]; then
-        cd grasp && $CHROOTENV git pull || die "Unable to pull from repo"
-        cd ..
-else
-        # We assume here that master branch is what we want
-        # This way we could handle both ssh:// and http:// repos.
-        # If we are going to parse grasp files, then we have to use http-only
-        # repo URL.
-        $CHROOTENV git clone ${GITBASE_URL}/grasp.git grasp
-        [ -d grasp -a grasp/.git ] || die "Something wicked happened during git clone"
-fi
-}
-
-build_grasp_git() {
-
-	local version="`override_get_pkg_version $pkgname $SLIND_SUITE`"
+fetch_package_git() {
+	local pkgname="$1"
 
 	cd $BUILDDIR
-	cd grasp && [ -f debian/rules ] && {
-		fakeroot make -f debian/rules binary || die "E: Unable to build grasp package"
-		grasp_version=`head -n 1 debian/changelog|sed -e 's@.*(\(.*\)).*@\1@g'`
-		if [ -n "$grasp_version" ]; then
-			$ROOT_CMD dpkg -i ../grasp_${grasp_version}_*.deb || \
-				die "grasp installation failed"
+	if [ -d $pkgname -a $pkgname/.git ]; then
+		cd $pkgname && $CHROOTENV git pull || die "Unable to pull from repo"
+		cd ..
+	else
+		# We assume here that master branch is what we want
+		# This way we could handle both ssh:// and http:// repos.
+		# If we are going to parse grasp files, then we have to use http-only
+		# repo URL.
+		$CHROOTENV git clone ${GITBASE_URL}/$pkgname.git $pkgname
+		[ -d $pkgname -a $pkgname/.git ] || die "Something wicked happened during git clone"
+	fi
+}
+
+build_package_git() {
+	local pkgname="$1"
+	
+	cd $BUILDDIR
+	cd $pkgname && [ -f debian/rules ] && {
+		fakeroot make -f debian/rules binary || die "E: Unable to build $pkgname package"
+		pkg_version=`head -n 1 debian/changelog|sed -e 's@.*(\(.*\)).*@\1@g'`
+		if [ -n "$pkg_version" ]; then
+			$ROOT_CMD dpkg -i ../${pkgname}_${pkg_version}_*.deb || \
+				die "$pkgname installation failed"
 		else
-			die "Bad grasp version"
+			die "Bad $pkgname version"
 		fi
 	}
-	[ "$?" != "0" ] && die "failed to get into grasp repository dir onbootstrap"
+	[ "$?" != "0" ] && die "failed to get into $pkgname repository dir onbootstrap"
 }
 
 # 1. get overrides.db
@@ -216,6 +215,8 @@ case "$1" in
 		# We don't want this to be run as root
 		[ "$UID" -eq "0" ] && die "Never run --initialize-pool as root"
 		get_overrides_db
+		fetch_package_git slindak
+		build_package_git slindak
 		refresh_pool
 		;;
 	--build|--build-init)
@@ -238,8 +239,8 @@ case "$1" in
 			;;
 			--build-init)
 				get_overrides_db
-				fetch_grasp_git
-				build_grasp_git
+				fetch_package_git grasp
+				build_package_git grasp
 				build_base_host_tools_packages_init
 			;;
 		esac

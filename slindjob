@@ -29,6 +29,7 @@ load_suites_config $SLIND_SUITE
 CHROOTENV="env $PROXYENV $CHROOTENV"
 
 CHR_PKGLIST_DIR=`conf_get_var_strict $SLIND_CONFIG slindjob chr_pkglist_dir`
+TARGET_ARCHES=`conf_get_var_strict $SLIND_CONFIG target target_arch`
 
 # Update all local packages' repos and build source packages
 update_all()
@@ -54,7 +55,7 @@ update_all
 logcmd "slindak -F -r $CHR_REPODIR" "updating repository indices"
 # Grok new indices
 $ROOT_CMD $CHROOTENV apt-get update
-for ARCH in $ARCHES; do
+for ARCH in $TARGET_ARCHES; do
 	logcmd "$CHROOTENV mktpkg $ARCH $SLIND_SUITE" "building $ARCH cross-toolchain"
 	if [ "$LASTSTATUS" = "0" ]; then
 		for pkg in `ls /tmp/tpkg/*.deb`; do
@@ -63,7 +64,7 @@ for ARCH in $ARCHES; do
 	fi
 done
 
-for ARCH in $ARCHES; do
+for ARCH in $TARGET_ARCHES; do
 	logcmd "$CHROOTENV nc update --arch $ARCH --path $CHR_REPODIR" "updating $ARCH indices"
 	if [ "$LASTSTATUS" = "0" ]; then
 		cat $CHR_PKGLIST_DIR/all.pkglist | while read pkg; do

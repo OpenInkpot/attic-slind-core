@@ -353,12 +353,12 @@ case "$1" in
 	setup)
 		[ -n "$SKIP_LIST" ] && echo "WARNING!!! Skipping broken packages: $SKIP_LIST" >&2
 		dev_bootstrap
+		dev_install $BASE_HST_PKG_LIST
 		add_user
 		copy_slind_core
 		configure_target
 		copy_tools
 		configure_apt
-		dev_install $BASE_HST_PKG_LIST
 		configure_tools
 		;;
 	bootstrap)
@@ -376,13 +376,13 @@ case "$1" in
 	maintainer-setup)
 		dev_bootstrap
 		configure_apt_debian
+		# To have only etch config, so SLIND pool breakage does not
+		# affect maintainer-setup
+		dev_install $BASE_HST_MAINT_PKG_LIST
 		add_user
 		copy_slind_core
 		configure_target
 		copy_tools
-		# To have only etch config, so SLIND pool breakage does not
-		# affect maintainer-setup
-		dev_install $BASE_HST_MAINT_PKG_LIST
 		configure_tools
 		# Now we have full APT config.
 		configure_apt

@@ -354,12 +354,11 @@ case "$1" in
 		[ -n "$SKIP_LIST" ] && echo "WARNING!!! Skipping broken packages: $SKIP_LIST" >&2
 		dev_bootstrap
 		configure_target
+		copy_tools
+		configure_apt
 		dev_install $BASE_HST_PKG_LIST
 		add_user
 		copy_slind_core
-		configure_target
-		copy_tools
-		configure_apt
 		configure_tools
 		;;
 	bootstrap)

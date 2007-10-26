@@ -27,3 +27,4 @@ bzip2
 strace
 bash
 procps
+dpkg

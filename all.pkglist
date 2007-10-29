@@ -28,3 +28,7 @@ strace
 bash
 procps
 dpkg
+coreutils
+dash
+debianutils
+findutils

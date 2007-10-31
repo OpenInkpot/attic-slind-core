@@ -27,6 +27,7 @@ bzip2
 strace
 bash
 procps
+perl
 dpkg
 coreutils
 dash

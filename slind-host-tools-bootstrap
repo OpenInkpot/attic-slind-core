@@ -118,8 +118,11 @@ get_overrides_db() {
 	        SLIND_MIRROR="file:///SLIND"
 	fi
 
-	$CHROOTENV curl $SLIND_MIRROR/indices/overrides.db -o $OVERRIDES_DB || \
-		die "downloading of $SLIND_MIRROR/indices/overrides.db failed"
+	[ -d `dirname $OVERRIDES_DB` ] || mkdir -p `dirname $OVERRIDES_DB`
+
+	[ -f "$OVERRIDES_DB" ] || \
+		$CHROOTENV curl $SLIND_MIRROR/indices/overrides.db -o $OVERRIDES_DB || \
+			die "downloading of $SLIND_MIRROR/indices/overrides.db failed"
 }
 
 #
@@ -151,11 +154,7 @@ build_base_host_tools_packages() {
 	done
 }
 refresh_pool() {
-		local _g
-		for _g in $ARCHES; do
-			make_Packages $SLIND_SUITE $_g
-		done
-		scan_all_dsc
+	slindak -r $CHR_REPODIR -F
 }
 build_base_host_tools_packages_init() {
 	echo "=== building base host-tools packages (with grasp) ==="
@@ -216,6 +215,7 @@ case "$1" in
 		# Our repository is initially empty, so lets generate indexes:
 		# We don't want this to be run as root
 		[ "$UID" -eq "0" ] && die "Never run --initialize-pool as root"
+		get_overrides_db
 		refresh_pool
 		;;
 	--build|--build-init)
@@ -245,6 +245,7 @@ case "$1" in
 		esac
 		install_base_host_tools_packages
 		deliver_packages $BUILDDIR
+		refresh_pool
 
 		#if [ -z "$2" ]; then
 		#	echo "Exiting, no arches were specified."

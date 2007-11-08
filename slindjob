@@ -51,14 +51,14 @@ update_all()
 : > "$LOGFILE"
 logstart "$REPORTFILE"
 update_all
-logcmd poolcare "updating repository indices"
+logcmd "slindak -F -r $CHR_REPODIR" "updating repository indices"
 # Grok new indices
 $ROOT_CMD $CHROOTENV apt-get update
 for ARCH in $ARCHES; do
 	logcmd "$CHROOTENV mktpkg $ARCH $SLIND_SUITE" "building $ARCH cross-toolchain"
 	if [ "$LASTSTATUS" = "0" ]; then
 		for pkg in `ls /tmp/tpkg/*.deb`; do
-			logcmd "pool-injectdeb $pkg $SLIND_SUITE" "moving `basename $pkg` to repository"
+			logcmd "slindak -r $CHR_REPODIR -i $pkg -s $SLIND_SUITE" "moving `basename $pkg` to repository"
 		done
 	fi
 done

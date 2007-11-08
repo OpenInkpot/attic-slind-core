@@ -21,7 +21,7 @@ Package: slind-maintainer-core
 Section: host-tools
 Priority: optional
 Architecture: all
-Depends: slind-core, grasp, sqlite3, gawk, curl
+Depends: slind-core, grasp, sqlite3, gawk, curl, slindak
 Description: SLIND maintainance helpers
  This package includes additional tools which are likely to be only required by
  maintainers of Slind packages or Slind developers and won't be of much help for

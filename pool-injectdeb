@@ -12,14 +12,6 @@ load_slind_config_common
 load_slind_config_maintainer_common
 load_suites_config
 
-LIBRARY=/usr/lib/slind-core/libpoolcare.sh
-if [ -f "$LIBRARY" ]; then
-	. $LIBRARY
-else
-	echo "Error: can't load library $LIBRARY"
-	exit 1
-fi
-
 DEBNAME="$1"
 if [ -z "$DEBNAME" ]; then
 	echo "Please specify a path to .deb file you want to inject"
@@ -32,27 +24,5 @@ if [ -z "$SUITE" ]; then
 	exit 1
 fi
 
-COMPONENT="$3"
-# FIXME:
-# We consider cheating here.
-# A problem:
-# We build both host-tools package from the same source, with dynamic control file,
-# setting proper SLIND_BUILD_OPTIONS.
-# So we have 2 records in our overrides.db when cross=host only differeing in
-# component.
-# We need component to uniquely distinguish our record in binary cache.
-# So we have to do pool-injection at build time.
-
-if [ -z "$COMPONENT" ]; then
-	yell "W: FIXME: empty COMPONENT, defaulting to 'host-tools'"
-	COMPONENT="host-tools"
-fi
-
-dir=`deb_cache $DEBNAME $SUITE $COMPONENT`
-if [ -z "$dir" ]; then
-	yell "WARNING: package $DEBNAME does not match suite=$SUITE, ignore this package"
-	exit 1
-fi
-echo "Moving $DEBNAME to $dir/"
-mkdir -p "$dir"
-mv "$DEBNAME" "$dir"
+mkdir -p "$CHR_REPODIR"
+slindak -i $DEBNAME -s $SUITE -r $CHR_REPODIR

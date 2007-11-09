@@ -6,7 +6,6 @@ base-passwd
 udhcp
 base-files
 netbase
-freetype
 sysklogd
 sysvinit
 ifupdown
@@ -33,3 +32,9 @@ coreutils
 dash
 debianutils
 findutils
+x11proto-core
+x11proto-xext
+xtrans
+libxdmcp
+libx11
+freetype

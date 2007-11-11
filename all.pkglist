@@ -34,6 +34,7 @@ debianutils
 findutils
 x11proto-core
 x11proto-xext
+libxau
 xtrans
 libxdmcp
 libx11

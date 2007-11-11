@@ -50,4 +50,6 @@ freetype
 libfontenc
 libxfont
 tslib
+libxext
+libxsp
 xserver-kdrive

@@ -6,12 +6,15 @@ base-passwd
 udhcp
 base-files
 netbase
+net-tools
 sysklogd
 sysvinit
 ifupdown
 gettext
 glib2.0
+libxml2
 joe
+nvi
 dropbear
 openssl
 openssh

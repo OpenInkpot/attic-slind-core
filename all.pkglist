@@ -4,6 +4,7 @@ zlib
 ncurses
 base-passwd
 udhcp
+lrzsz
 base-files
 netbase
 net-tools

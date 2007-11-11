@@ -49,3 +49,5 @@ libx11
 freetype
 libfontenc
 libxfont
+tslib
+xserver-kdrive

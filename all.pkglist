@@ -15,6 +15,8 @@ joe
 dropbear
 openssl
 openssh
+libpcap0.8
+tcpdump
 cron
 popt
 logrotate

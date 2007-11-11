@@ -8,6 +8,7 @@ base-files
 netbase
 net-tools
 iptables
+iputils
 sysklogd
 sysvinit
 ifupdown

@@ -47,3 +47,5 @@ xtrans
 libxdmcp
 libx11
 freetype
+libfontenc
+libxfont

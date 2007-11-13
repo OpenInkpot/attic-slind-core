@@ -3,6 +3,7 @@ linux-kernel-headers
 uclibc
 glibc
 gcc-4.1
+pkg-config
 gdb
 grasp
 dpkg

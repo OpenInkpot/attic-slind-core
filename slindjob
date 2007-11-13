@@ -64,12 +64,33 @@ for ARCH in $TARGET_ARCHES; do
 	fi
 done
 
+# How many packages do we build in parallel?
+PAR_BUILD=4
+
 for ARCH in $TARGET_ARCHES; do
 	logcmd "$CHROOTENV nc update --arch $ARCH --path $CHR_REPODIR" "updating $ARCH indices"
 	if [ "$LASTSTATUS" = "0" ]; then
-		cat $CHR_PKGLIST_DIR/all.pkglist | while read pkg; do
-			logcmd "$CHROOTENV SLIND_BUILD_OPTIONS=target nc build $pkg --arch $ARCH --path $CHR_REPODIR" \
-				"building $pkg for $ARCH"
+		_i=1		# Current line in pkglist
+		_j=0		# Amount of processes
+		_total=`wc -l < $CHR_PKGLIST_DIR/all.pkglist`
+		
+		cat $CHR_PKGLIST_DIR/all.pkglist | while [ $_i -le $_total ]; do 
+		    if [ $_j -lt $PAR_BUILD ]; then 
+			_j=$((_j + 1))
+			_i=$((_i + 1))
+			read pkg
+			logmsg "building $pkg for $ARCH"
+			$CHROOTENV SLIND_BUILD_OPTIONS=target nc build $pkg --arch $ARCH --path $CHR_REPODIR & 
+		    else
+			# Wait for any of the children.
+			wait
+			if [ "$?" = "0" ]; then  
+				logmsg "OK";     
+			else                     
+				logmsg "FAILED"; 
+			fi                       
+			_j=$((_j - 1))
+		    fi
 		done
 	fi
 done

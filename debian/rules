@@ -53,7 +53,7 @@ binary-arch: install
 	cp poolcare $(dir_slind-maintainer-core)/usr/bin
 	cp pool-injectdeb $(dir_slind-maintainer-core)/usr/bin
 	cp slind-host-tools-bootstrap $(dir_slind-maintainer-core)/usr/bin
-	cp slindjob $(dir_slind-maintainer-core)/usr/bin
+	cp slindjob.pl $(dir_slind-maintainer-core)/usr/bin/slindjob
 	cp *.pkglist $(dir_slind-maintainer-core)/var/lib/slind-maint
 	chmod 755 $(dir_slind-maintainer-core)/usr/bin/*
 	dh_installchangelogs

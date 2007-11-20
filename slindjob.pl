@@ -15,9 +15,10 @@ our $gitrepos = $scfg->val('maintainer-common', 'chr_gitrepos_dir');
 our $repodir = $scfg->val('maintainer-common', 'chr_repodir');
 our $archlist = $scfg->val('target', 'target_arch');
 our $suite = $scfg->val('common', 'slind_suite');
-our $since;
+our $sudo = $scfg->val('common', 'root_cmd');
+our $since = '2005/01/01';
 our $pretty = 'short';
-our $maxth = 5; # XXX: this should be defined in slind-config.ini as well
+our $maxth = '5'; # XXX: this should be defined in slind-config.ini as well
 our @pkglist_all, @pkglist_build, $rebuild_toolchains = 0;
 
 # set proxies, if we have to
@@ -25,6 +26,13 @@ $ENV{http_proxy} = $scfg->val('common', 'http_proxy_url')
 	if $scfg->val('common', 'http_proxy_url');
 $ENV{ftp_proxy} = $scfg->val('common', 'ftp_proxy_url')
 	if $scfg->val('common', 'ftp_proxy_url');
+
+our $comp = 'core debug security gui';
+our %rootfs = (
+	'base'   => '',
+	'normal' => 'tcpdump nvi',
+	'bloat'  => 'nvi strace tcpdump joe',
+);
 
 # read in the time and date of last build run
 if (-e "$repodir/scripts/timestamp") {
@@ -49,6 +57,15 @@ close F;
 
 # do rebuild
 rebuildall();
+
+for $rn (keys %rootfs) {
+	mkrootfs('i386', $rn, $rootfs{$rn});
+	for $a (split / /, $archlist) {
+		mkrootfs($a, $rn, $rootfs{$rn});
+	}
+}
+
+exit 0;
 
 # execute a command and report if it succeeded or failed
 sub spawn
@@ -135,23 +152,25 @@ sub rebuildall
 			$ENV{USENJOBS} = $maxth;
 
 			# build toolchain for $arch
-			system("mktpkg $arch clydesdale");
+			spawn("mktpkg --force $arch clydesdale");
 
 			# deliver built packages to $repodir
 			my $pkg;
 			opendir TD, "/tmp/tpkg";
 			while ($pkg = readdir(TD)) {
 				next unless $pkg =~ m/\.deb$/;
-				system("slindak -r $repodir -i $pkg -s $suite");
+				system("slindak -r $repodir -i /tmp/tpkg/$pkg ".
+					"-s $suite");
 			}
 			closedir TD;
 		}
+
+		# update repository indices
+		system("slindak -r $repodir -F");
 	}
 
-	# update repository indices
-	system("slindak -r $repodir -F");
-
 	for $arch (split / /, $archlist) {
+retry:
 		if ($th < $maxth) {
 			# start a child process to build the world for us
 			$pid = fork();
@@ -160,23 +179,77 @@ sub rebuildall
 				system("northern-cross world --arch $arch --path $repodir --rrevdep --logdir /tmp/nc_$arch");
 				exit 0;
 			} else {
-				$pidhash{$pid} = 1;
+				$pidhash{$pid} = $arch;
 				$th++;
 			}
 		} else {
 			# wait for the first child to return
 			$pid = waitpid -1, 0;
+			print "# reaping $pidhash{$pid} ($pid, $th)\n";
 			delete $pidhash{$pid};
 			$th-- if $th;
+			goto retry;
 		}
 	}
 
 	# wait until the last child has returned
 	while ($th) {
 		$pid = waitpid -1, 0;
+		print "# reaping $pidhash{$pid} ($pid, $th)\n";
 		delete $pidhash{$pid};
 		$th-- if $th;
 	}
+}
+
+sub mkrootfs
+{
+	my ($arch, $name, $pkglist) = @_;
+	my $buildcpuarch = `dpkg-architecture -qDEB_BUILD_GNU_CPU 2>/dev/null`;
+	my $hostcpuarch = `dpkg-architecture -f -a$arch -qDEB_HOST_GNU_CPU 2>/dev/null`;
+	my $deboscript = "/usr/lib/slind-core/debootstrap/$suite";
+
+	chomp $buildcpuarch;
+	chomp $hostcpuarch;
+	#print "## $buildcpuarch vs $hostcpuarch\n";
+	print '='x79, "\nBuilding $arch rootfs [$name]\n", '='x79, "\n";
+
+	open SL, ">/tmp/s.l";
+	print SL "deb file:///repo $suite $comp\n";
+	close SL;
+
+	if ($buildcpuarch eq $hostcpuarch) {
+		spawn("$sudo rm -rf /rootfs-$arch");
+		return
+			if spawn("$sudo debootstrap --components=core $suite ".
+			"/rootfs-$arch file://$repodir $deboscript");
+
+		spawn("$sudo mkdir -p /rootfs-$arch/repo");
+		spawn("$sudo mount --bind $repodir /rootfs-$arch/repo");
+		spawn("$sudo mv /tmp/s.l /rootfs-$arch/etc/apt/sources.list");
+
+		if ($pkglist) {
+			spawn("$sudo chroot /rootfs-$arch apt-get update");
+			spawn("$sudo chroot /rootfs-$arch apt-get install ".
+				"--yes --force-yes $pkglist");
+		}
+		spawn("$sudo chroot /rootfs-$arch apt-get clean");
+		spawn("$sudo umount /rootfs-$arch/repo");
+		spawn("$sudo tar cf /build/rootfs-$arch.tar /rootfs-$arch");
+		spawn("$sudo chown build /build/rootfs-$arch.tar");
+		spawn("$sudo chmod u+s /rootfs-$arch/sbin/ldconfig");
+	} else {
+		spawn("rm -rf /rootfs-$arch/*");
+		spawn("$sudo mkdir -p /rootfs-$arch");
+		spawn("$sudo chown -R build /rootfs-$arch");
+		return if spawn("cross-shell bs $arch");
+		spawn("rm -rf /rootfs-$arch/repo");
+		spawn("ln -sf $repodir /rootfs-$arch/repo");
+		spawn("mv -f /tmp/s.l /rootfs-$arch/etc/apt/sources.list");
+		spawn("cross-shell apt $arch $pkglist") if $pkglist;
+		spawn("cross-shell pack $arch");
+	}
+
+	rename "/build/rootfs-$arch.tar", "/build/rootfs-$arch-$name.tar";
 }
 
 # return current date and time in a manner suitable for

@@ -152,7 +152,7 @@ sub rebuildall
 			$ENV{USENJOBS} = $maxth;
 
 			# build toolchain for $arch
-			spawn("mktpkg --force $arch clydesdale");
+			spawn("env SETNJOBS=$maxth USENJOBS=$maxth mktpkg --force $arch clydesdale");
 
 			# deliver built packages to $repodir
 			my $pkg;
@@ -176,7 +176,7 @@ retry:
 			$pid = fork();
 			unless ($pid) {
 				print "--- running northern-cross for $arch ---\n";
-				system("northern-cross world --arch $arch --path $repodir --rrevdep --logdir /tmp/nc_$arch");
+				system("northern-cross world --arch $arch --path $repodir --rrevdep --logdir $repodir/logs/nc_$arch");
 				exit 0;
 			} else {
 				$pidhash{$pid} = $arch;

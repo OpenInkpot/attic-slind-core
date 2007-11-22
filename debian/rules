@@ -45,6 +45,7 @@ binary-arch: install
 	cp slind-host-tools-bootstrap $(dir_slind-core)/usr/lib/slind-core
 	cp logging.sh $(dir_slind-core)/usr/lib/slind-core
 	cp debootstrap/clydesdale $(dir_slind-core)/usr/lib/slind-core/debootstrap
+	cp debootstrap/percheron $(dir_slind-core)/usr/lib/slind-core/debootstrap
 
 	# slind-maintainer-core
 	mkdir -p $(dir_slind-maintainer-core)/usr/bin

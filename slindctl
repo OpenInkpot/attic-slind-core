@@ -125,6 +125,16 @@ if [ -z "$UID" ]; then
        UID=`id -u`
 fi
 
+# Before we start, check if WORK_DIR is absolute.
+# That's a quite stupid test, in fact -- the path may start with "/", 
+# but contain ".." and so on. However, as it does not exist yet, we can't
+# use realpath.
+_wd=`echo $WORK_DIR | cut -c1`
+if [ "x$_wd" != "x/" ]; then
+    echo "work_dir path in your configuration is not absolute."
+    exit 1
+fi
+
 # 1. bootstrap building environment
 dev_bootstrap() {
 	echo "=== dev_bootstrap ==="

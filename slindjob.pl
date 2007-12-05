@@ -152,7 +152,7 @@ sub rebuildall
 			$ENV{USENJOBS} = $maxth;
 
 			# build toolchain for $arch
-			spawn("env SETNJOBS=$maxth USENJOBS=$maxth mktpkg --force $arch clydesdale");
+			spawn("env SETNJOBS=$maxth USENJOBS=$maxth mktpkg --force $arch $suite");
 
 			# deliver built packages to $repodir
 			my $pkg;

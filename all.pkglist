@@ -2,6 +2,7 @@ gdb
 apt
 busybox
 zlib
+libiconv
 ncurses
 base-passwd
 udhcp

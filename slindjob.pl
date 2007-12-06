@@ -176,7 +176,7 @@ retry:
 			$pid = fork();
 			unless ($pid) {
 				print "--- running northern-cross for $arch ---\n";
-				system("northern-cross world --arch $arch --path $repodir --rrevdep --logdir $repodir/logs/nc_$arch");
+				system("northern-cross world --arch $arch --path $repodir --suite $suite --rrevdep --logdir $repodir/logs/nc_$arch");
 				exit 0;
 			} else {
 				$pidhash{$pid} = $arch;

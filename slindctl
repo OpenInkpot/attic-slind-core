@@ -223,7 +223,6 @@ copy_tools() {
 # 3. configure apt
 configure_apt() {
 	local _tmpfile
-	local _tmpfile_apt_pref
 	local _comp
 	local _host_comp
 	local _suite_host_comp
@@ -232,12 +231,8 @@ configure_apt() {
 	    yell "ERROR: can't create temporary file"
 	    exit 1
 	}
-	_tmpfile_apt_pref=`mktemp` || {
-	    yell "ERROR: can't create temporary file"
-	    exit 1
-	}
 
-	chmod 644 $_tmpfile $_tmpfile_apt_pref
+	chmod 644 $_tmpfile
 
 	load_suites_config $SLIND_SUITE
 
@@ -246,14 +241,7 @@ configure_apt() {
 	echo "deb $SLIND_MIRROR $SLIND_SUITE $HOST_COMPONENTS" >> $_tmpfile
 	echo "deb-src $SLIND_MIRROR $SLIND_SUITE $COMPONENTS" >> $_tmpfile
 
-	cat > $_tmpfile_apt_pref<<EOF
-Package: *
-Pin: release o=Debian
-Pin-Priority: 999
-EOF
-
 	$ROOT_CMD mv $_tmpfile $WORK_DIR/etc/apt/sources.list
-	$ROOT_CMD mv $_tmpfile_apt_pref $WORK_DIR/etc/apt/preferences
 	$CHROOTCMD_ROOT "apt-get update"
 }
 

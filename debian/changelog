@@ -1,3 +1,104 @@
+slind-core (0.3.1) unstable; urgency=low
+
+  * New upstream version
+
+  [ Alexander Shishkin ]
+  * restore component field in binary_cache table
+  * fix passing extra options to tar
+  * fix infinite loop during 'apt-get install' run
+  * don't overwrite in-chroot repository on bootstrap
+  * fix a typo
+  * remove i386-toolchain from broken list; it is perfectly installable
+  * Revert "Add apt to "required" package list of debootstrap"
+  * add 'start-stop-daemon' package to the list of required packages
+  * add bash and procps to package list
+  * slindak integration
+  * add basic x11 packages to all.pkglist
+  * add missing libxau so that x11proto-xext can compile
+  * add missing tcpdump/libpcap to pkglist
+  * add libxml2, nvi and net-tools which were missing
+  * add iptables
+  * add iputils to pkglist
+  * add missing lrzsz to pkglist
+  * add x font stuff (libfontenc, libxfont) to pkglist
+  * add tslib and xserver-kdrive to pkglist
+  * add libxext and libxsp to pkglist
+  * remove working toolchains from broken list
+  * Parallel northern-cross execution support
+  * add pkg-config to host.pkglist
+  * add perl replacement for slindjob
+  * replace old slindjob in slind-maintainer-core with a new version
+  * add gdb to all.pkglist as well
+  * fix multithreaded nc execution and add rootfs creation
+  * add libconfig-inifiles-perl to needed packages
+  * store build logs in repository
+  * add percheron script for debootstrap
+  * remove hardcoded clydesdale
+  * add libiconv to all.pkglist
+  * slibdjob: pass suite to northern-cross
+  * add a lot of graphical stuff and expat to all.pkglist
+  * forcedly update repo indices after rebuilding
+
+  [ Maxim Osipov ]
+  * Add chroot command
+  * Fix installation of clydesdale script
+  * Fix bootstrap failure.
+  * Pass components to debootsrap.
+  * Fix bashism (array usage).
+  * Add apt to "required" package list of debootstrap
+  * Fix cross-shell to support new configuration style
+
+  [ Mikhail Kshevetskiy ]
+  * fix override_try_add_package behavior
+
+  [ Sergey Lapin ]
+  * Building host-tools from git. Improved version.
+  * slindctl cleanups + overrides db sample
+  * Disable component singularity per package/version test
+  * Improve error checking in slindctl
+  * Partial fix for overrides.db misfunctionality problem
+  * New overrides.sql with data integrity
+  * Temprorary fix for overrides, not for committing
+
+  [ Wartan Hachaturow ]
+  * Update packaging
+  * Delete old-style configuration files.
+  * Fix a stupid test bug, missing space.
+  * Fix yet another stupid bug, where we checked wrong return code.
+  * Add script description, thanks Maxim.
+  * Extended semantics of "chroot".
+  * Be *not* nice to the parent if conf_get_var_strict sees no value.
+  * Fix (one of the) bashisms.
+  * Add CHROOTENV for slindjob's subcommands.
+  * Fake start-stop-daemon for bootstrap phase
+  * Make warnings and errors go to stderr
+  * Change configuration file template to use public Debian mirror
+  * Run cross-shell as root in case of target arch being equal to host arch
+  * Correctly pass proxy settings where it's needed
+  * add required debs to the list of bootstraped host packages
+  * Always download overrides.db
+  * Do not build toolchains during host-tools-bootstrap
+  * Host tools are no longer bootstraped from slindjob
+  * Toolchains are now build in slindjob only
+  * Use proxy for debootstrap
+  * Update apt cache before slindjob
+  * Mark slind configs as conffiles
+  * Update apt lists after poolcare
+  * Pass chroot environment to maintainer-build
+  * Bootstrap slindak the same way as grasp
+  * Make the build directory early
+  * Cleanup configuration file handling on slind-core repack
+  * Install adduser before we call it
+  * Copy /etc/hosts early
+  * Get architecture settings from config file.
+  * Rearrange 'setup' sequence
+  * Add dpkg to pkglists
+  * Pass SLIND_BUILD_OPTIONS down to nc
+  * Add perl to the pkglist
+  * Only allow absolute paths for work_dir (closes: #37)
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Wed, 19 Dec 2007 12:50:10 +0300
+
 slind-core (0.3) unstable; urgency=low
 
   * New style of configuration file, everything is now in one, nice, smooth,

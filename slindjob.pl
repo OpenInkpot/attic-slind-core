@@ -199,6 +199,9 @@ retry:
 		delete $pidhash{$pid};
 		$th-- if $th;
 	}
+
+	# make sure the indices are consistent
+	system("slindak -r $repodir -F -C");
 }
 
 sub mkrootfs

@@ -1,4 +1,5 @@
 #!/bin/sh
+
 #
 # This tool is a main interface to Slind for users and developers. So, it has
 # two main modes of operation, user and maintainer. The following commands are
@@ -340,8 +341,11 @@ bootstrap_target() {
 
 	_target_apt=`conf_get_var_relaxed $SLIND_CONFIG target addon_packages`
 
+	local _archcpu=`dpkg-architecture -f -a$ARCH -qDEB_HOST_GNU_CPU 2>/dev/null`
+	local _hostcpu=`dpkg-architecture -f -a$HOSTARCH -qDEB_HOST_GNU_CPU 2>/dev/null`
+
 	for ARCH in $TARGET_ARCHES; do
-		if [ "x$ARCH" = "x$HOSTARCH" ]; then
+		if [ "x$_archcpu" = "x$_hostcpu" ]; then
 		    # We run cross-shell as root in this case, since it does
 		    # real chroot.
 		    # FIXME: fakechroot-cross should be able to do plain

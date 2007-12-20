@@ -1,3 +1,16 @@
+slind-core (0.3.2) unstable; urgency=low
+
+  * New upstream version
+
+  [ Alexander Shishkin ]
+  * fix a typo
+  * compare build cpu and host cpu instead of their architectures
+
+  [ Wartan Hachaturow ]
+  * Remove apt pinning in working directory (closes: #41, #47).
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Thu, 20 Dec 2007 16:27:32 +0300
+
 slind-core (0.3.1) unstable; urgency=low
 
   * New upstream version

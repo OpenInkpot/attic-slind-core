@@ -1,3 +1,9 @@
+slind-core (0.3.3) unstable; urgency=low
+
+  * Add libxtst and gtk+2.0 to package list.
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Fri, 21 Dec 2007 21:38:06 +0300
+
 slind-core (0.3.2) unstable; urgency=low
 
   * New upstream version

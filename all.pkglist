@@ -72,3 +72,5 @@ pango1.0
 tiff
 xft
 aterm
+libxtst
+gtk+2.0

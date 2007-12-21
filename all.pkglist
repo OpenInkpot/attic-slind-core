@@ -72,5 +72,8 @@ pango1.0
 tiff
 xft
 aterm
+startup-notification
+libmatchbox
+matchbox-window-manager
 libxtst
 gtk+2.0

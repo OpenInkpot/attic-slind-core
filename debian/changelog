@@ -1,3 +1,9 @@
+slind-core (0.3.4) unstable; urgency=low
+
+  * Add matchbox and friends to package list.
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Sat, 22 Dec 2007 01:29:01 +0300
+
 slind-core (0.3.3) unstable; urgency=low
 
   * Add libxtst and gtk+2.0 to package list.

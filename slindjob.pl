@@ -167,6 +167,14 @@ sub rebuildall
 
 		# update repository indices
 		system("slindak -r $repodir -F");
+	} else {
+		my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
+
+		# install binary toolchains
+		spawn("sudo apt-get install --yes --force-yes $hostarch-toolchain ".
+			join(' ', map {
+				"$_-cross-toolchain"
+			} split / /, $archlist));
 	}
 
 	for $arch (split / /, $archlist) {

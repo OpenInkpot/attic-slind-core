@@ -1,3 +1,9 @@
+slind-core (0.3.6) unstable; urgency=low
+
+  * Add libidl and microb-engine to the packages list.
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Sat, 29 Dec 2007 12:20:47 +0300
+
 slind-core (0.3.5) unstable; urgency=low
 
   * Install cross-toolchains in slindjob runs when necessary.

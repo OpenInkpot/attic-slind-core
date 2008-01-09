@@ -120,7 +120,7 @@ get_overrides_db() {
 	[ -d `dirname $OVERRIDES_DB` ] || mkdir -p `dirname $OVERRIDES_DB`
 
 	[ -f "$OVERRIDES_DB" ] || \
-		$CHROOTENV curl $SLIND_MIRROR/indices/overrides.db -o $OVERRIDES_DB || \
+		$CHROOTENV curl -f $SLIND_MIRROR/indices/overrides.db -o $OVERRIDES_DB || \
 			die "downloading of $SLIND_MIRROR/indices/overrides.db failed"
 }
 

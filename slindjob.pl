@@ -175,6 +175,7 @@ sub rebuildall
 		system("slindak -r $repodir -F");
 	} else {
 		my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
+		chomp $hostarch;
 
 		# install binary toolchains
 		spawn("sudo apt-get install --yes --force-yes $hostarch-toolchain ".

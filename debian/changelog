@@ -1,3 +1,15 @@
+slind-core (0.3.7) unstable; urgency=low
+
+  * New upstream version.
+
+  [ Alexander Shishkin ]
+  * shtbs: actually fail if unable to download overrides
+  * slindjob: make dates prettier, write slindjob_maillog
+  * slindjob: fix cross toolchain installation
+  * slindjob: put shortlogs to mailstat instead of full-fledged logs
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Wed,  9 Jan 2008 14:24:01 +0300
+
 slind-core (0.3.6) unstable; urgency=low
 
   * Add libidl and microb-engine to the packages list.

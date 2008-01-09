@@ -103,6 +103,7 @@ sub gitlog
 
 	return 0 unless length $log;
 
+	$log = `echo "$log" | git-shortlog`;
 	open Q, ">>/tmp/slindjob_mailstat";
 	print Q "$pkgname:\n$log\n";
 	close Q;

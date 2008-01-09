@@ -74,9 +74,15 @@ sub spawn
 
 	$msg = "executing $cmd" unless $msg;
 
+	open RF, ">>$REPORTFILE" || die "Can't open $REPORTFILE";
+	print RF "$msg... ";
+
 	print "$msg... ";
 	my $ret = system("$cmd >> $LOGFILE 2>&1");
 	print ($ret ? "FAILED\n" : "OK\n");
+
+	print RF ($ret ? "FAILED\n" : "OK\n");
+	close RF;
 
 	return $ret;
 }
@@ -135,8 +141,8 @@ sub update_all
 	}
 
 	closedir LD;
-	system("slindak -r $repodir -F");
-	system("sudo env http_proxy=". $ENV{http_proxy}. " apt-get update");
+	spawn("slindak -r $repodir -F");
+	spawn("sudo env http_proxy=". $ENV{http_proxy}. " apt-get update");
 }
 
 # rebuild anything that must be rebuilt
@@ -184,7 +190,7 @@ retry:
 			$pid = fork();
 			unless ($pid) {
 				print "--- running northern-cross for $arch ---\n";
-				system("northern-cross world --arch $arch --path $repodir --suite $suite --rrevdep --logdir $repodir/logs/nc_$arch");
+				spawn("northern-cross world --arch $arch --path $repodir --suite $suite --rrevdep --logdir $repodir/logs/nc_$arch");
 				exit 0;
 			} else {
 				$pidhash{$pid} = $arch;
@@ -268,7 +274,8 @@ sub mkrootfs
 sub timestamp
 {
 	my @lt = localtime(time);
-	return ($lt[5] + 1900). ($lt[4] + 1).$lt[3]. '_'. $lt[2].$lt[1];
+	return sprintf("%04d%02d%02d_%02d%02d",
+		($lt[5] + 1900), ($lt[4] + 1), $lt[3], $lt[2], $lt[1]);
 }
 
 # return current date and time in a human readable form
@@ -276,7 +283,7 @@ sub timestamp
 sub timespec
 {
 	my @lt = localtime(time);
-	return ($lt[5] + 1900). '/'. ($lt[4] + 1). '/' .$lt[3]. 
-		' '. $lt[2]. ':'. $lt[1];
+	return sprintf("%04d/%02d/%02d %02d:%02d",
+		$lt[5] + 1900, $lt[4] + 1, $lt[3], $lt[2], $lt[1]);
 }
 

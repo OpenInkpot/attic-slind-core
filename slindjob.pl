@@ -217,7 +217,8 @@ retry:
 	}
 
 	# make sure the indices are consistent
-	system("slindak -r $repodir -F -C");
+	system("slindak -r $repodir -C");
+	system("slindak -r $repodir -F");
 }
 
 sub mkrootfs

@@ -87,3 +87,8 @@ gtk+2.0
 links2
 libidl
 microb-engine
+psplash
+dbus
+dbus-glib
+matchbox-desktop
+matchbox-common

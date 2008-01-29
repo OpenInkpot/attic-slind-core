@@ -11,8 +11,10 @@ dpkg-cross
 dpkg-pool
 slind-core
 slind-utils
+slindak
 toolchain-package
 cross-shell
 fakechroot-cross
 northern-cross
 java-package
+cdbs-slind

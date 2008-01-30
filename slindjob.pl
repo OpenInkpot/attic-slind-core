@@ -8,7 +8,8 @@ our $scfg = new Config::IniFiles
 	-file => $ENV{HOME}. '/.slind/slind-config.ini',
 	-allowcontinue => 1;
 
-our $LOGFILE = "/tmp/slindjob-" . timestamp();
+our $LOGTIME = timestamp();
+our $LOGFILE = "/tmp/slindjob-$LOGTIME";
 our $REPORTFILE = "/tmp/slindjob_maillog";
 our $pkglistdir = $scfg->val('slindjob', 'chr_pkglist_dir');
 our $gitrepos = $scfg->val('maintainer-common', 'chr_gitrepos_dir');
@@ -29,9 +30,9 @@ $ENV{ftp_proxy} = $scfg->val('common', 'ftp_proxy_url')
 
 our $comp = 'core debug security gui';
 our %rootfs = (
-	'base'   => '',
+#	'base'   => '',
 	'normal' => 'tcpdump nvi',
-	'bloat'  => 'nvi strace tcpdump joe',
+#	'bloat'  => 'nvi strace tcpdump joe',
 );
 
 # read in the time and date of last build run
@@ -46,9 +47,16 @@ open F, ">$repodir/scripts/timestamp";
 print F timespec();
 close F;
 
-print "since: $since\n";
+chomp $since;
+logmsg("Building \"$suite\" ($LOGTIME).\nLast build date: $since.\n");
 
 update_all();
+
+logmsg("Packages to be rebuilt during this run: ".
+	join(', ', @pkglist_build). "\n");
+logmsg("Architectures: $archlist\n");
+logmsg("For datailed per-package per-architecture build logs, see ".
+	"http://ftp.slind.org/pub/SLIND/logs/$LOGTIME/\n");
 
 # write a list of packages to be rebuilt
 open F, ">$repodir/indices/cheburashka.list";
@@ -58,6 +66,11 @@ close F;
 # do rebuild
 rebuildall();
 
+logmsg("Build finished at ". timespec(). "\n");
+
+exit 0;
+
+logmsg("Building rootfs images\n");
 for $rn (keys %rootfs) {
 	mkrootfs('i386', $rn, $rootfs{$rn});
 	for $a (split / /, $archlist) {
@@ -67,22 +80,26 @@ for $rn (keys %rootfs) {
 
 exit 0;
 
+sub logmsg
+{
+	my $msg = shift;
+
+	open RF, ">>$REPORTFILE" || die "Can't open $REPORTFILE";
+	print RF "$msg";
+	close RF;
+	print "$msg";
+}
+
 # execute a command and report if it succeeded or failed
 sub spawn
 {
 	my ($cmd, $msg) = @_;
 
 	$msg = "executing $cmd" unless $msg;
+	logmsg("$msg... ");
 
-	open RF, ">>$REPORTFILE" || die "Can't open $REPORTFILE";
-	print RF "$msg... ";
-
-	print "$msg... ";
 	my $ret = system("$cmd >> $LOGFILE 2>&1");
-	print ($ret ? "FAILED\n" : "OK\n");
-
-	print RF ($ret ? "FAILED\n" : "OK\n");
-	close RF;
+	logmsg($ret ? "FAILED\n" : "OK\n");
 
 	return $ret;
 }
@@ -125,7 +142,6 @@ sub update_all
 		my $pkg;
 		while ($pkg = <F>) {
 			chomp $pkg;
-			print ">>>>> $pkg <<<<<\n";
 			push(@pkglist_all, $pkg) if $file ne 'host-tools.pkglist';
 
 			spawn("grasp update $pkg", "Updating $pkg package");
@@ -192,7 +208,7 @@ retry:
 			$pid = fork();
 			unless ($pid) {
 				print "--- running northern-cross for $arch ---\n";
-				spawn("northern-cross world --arch $arch --path $repodir --suite $suite --rrevdep --logdir $repodir/logs/nc_$arch");
+				spawn("northern-cross world --arch $arch --path $repodir --suite $suite --rrevdep --logdir $repodir/logs/$LOGTIME/nc_$arch");
 				exit 0;
 			} else {
 				$pidhash{$pid} = $arch;

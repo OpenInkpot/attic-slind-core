@@ -95,3 +95,7 @@ dbus
 dbus-glib
 matchbox-desktop
 matchbox-common
+gconf2
+matchbox-panel
+matchbox-panel-manager
+matchbox-themes-extra

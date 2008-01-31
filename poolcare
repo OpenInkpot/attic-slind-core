@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "ERROR: poolcare is prohibited by slind masters, use slindak instead."
+exit 1
+
 LIBUTILS=/usr/lib/slind-core/libutils.sh
 if [ -f "$LIBUTILS" ]; then
 	. $LIBUTILS

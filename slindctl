@@ -333,20 +333,16 @@ bootstrap_target() {
 	local _hostcpu=`dpkg-architecture -f -a$HOSTARCH -qDEB_HOST_GNU_CPU 2>/dev/null`
 
 	for ARCH in $TARGET_ARCHES; do
-		if [ "x$_archcpu" = "x$_hostcpu" ]; then
-		    # We run cross-shell as root in this case, since it does
-		    # real chroot.
-		    # FIXME: fakechroot-cross should be able to do plain
-		    # fakechroot.
-		    _chroot_cmd=$CHROOTCMD_ROOT
-		else
-		    _chroot_cmd=$CHROOTCMD_BUILD
-		fi
 		$ROOT_CMD mkdir -p $WORK_DIR/rootfs-$ARCH
 		$ROOT_CMD chown -R $UID:$UID $WORK_DIR/rootfs-$ARCH
 
 		$_chroot_cmd "cross-shell bs $ARCH"
-		[ -n "$_target_apt" ] && $_chroot_cmd "cross-shell apt $ARCH $_target_apt"
+		if [ -n "$_target_apt" ]
+		then
+			$CHROOTCMD_BUILD "cross-shell sh $ARCH apt-get update"
+			$CHROOTCMD_BUILD "cross-shell sh $ARCH apt-get install --yes --force-yes $_target_apt"
+			$CHROOTCMD_BUILD "cross-shell sh $ARCH apt-get clean"
+		fi
 		$_chroot_cmd "cross-shell pack $ARCH"
 	done
 }

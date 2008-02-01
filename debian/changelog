@@ -1,3 +1,12 @@
+slind-core (0.3.13) unstable; urgency=low
+
+  * New version.
+  
+  [ Alexander Shishkin ]
+  * obsolete pool-injectdeb from shtbs and slind-config
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Fri,  1 Feb 2008 20:21:40 +0300
+
 slind-core (0.3.12) unstable; urgency=low
 
   * New version.

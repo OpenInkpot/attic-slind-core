@@ -205,7 +205,7 @@ deliver_packages() {
 	local p
 
 	for p in $from/*.deb; do
-		$DELIVERCMD $p $SLIND_SUITE
+		slindak -r $CHR_REPODIR -s $SLIND_SUITE -i $p
 	done
 }
 

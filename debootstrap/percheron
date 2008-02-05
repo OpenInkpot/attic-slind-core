@@ -130,12 +130,12 @@ EOF
 
     info CONFREQ "Configuring required packages..."
 
-    #mv "$TARGET/sbin/start-stop-daemon" "$TARGET/sbin/start-stop-daemon.REAL"
-    #echo \
-    #"#!/bin/sh
-    #echo
-    #echo \"Warning: Fake start-stop-daemon called, doing nothing\"" > "$TARGET/sbin/start-stop-daemon"
-    #chmod 755 "$TARGET/sbin/start-stop-daemon"
+    mv "$TARGET/sbin/start-stop-daemon" "$TARGET/sbin/start-stop-daemon.REAL"
+    echo \
+    "#!/bin/sh
+    echo
+    echo \"Warning: Fake start-stop-daemon called, doing nothing\"" > "$TARGET/sbin/start-stop-daemon"
+    chmod 755 "$TARGET/sbin/start-stop-daemon"
 
     setup_dselect_method apt
 
@@ -152,7 +152,7 @@ EOF
 
     p 9; progress $baseprog $bases INSTBASE "Installing base system" #39
 
-    #mv "$TARGET/sbin/start-stop-daemon.REAL" "$TARGET/sbin/start-stop-daemon"
+    mv "$TARGET/sbin/start-stop-daemon.REAL" "$TARGET/sbin/start-stop-daemon"
 
     progress $bases $bases INSTBASE "Installing base system" #40
     info BASESUCCESS "Base system installed successfully."

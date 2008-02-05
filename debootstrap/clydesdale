@@ -163,7 +163,7 @@ download_main_indices () {
   local m1=${MIRRORS%% *}
   progress 0 100 DOWNMAINPKGS "Downloading Packages file"
   progress_next 100
-  COMPONENTS="`echo $USE_COMPONENTS | sed 's/|/ /'`"
+  COMPONENTS="`echo $USE_COMPONENTS | sed 's/|/ /g'`"
   export COMPONENTS
   for m in $MIRRORS; do
     for c in $COMPONENTS; do

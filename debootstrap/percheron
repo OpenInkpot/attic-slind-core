@@ -179,3 +179,70 @@ download_main_indices () {
   done
   progress 100 100 DOWNMAINPKGS "Downloading Packages file"
 }
+
+download_main () {
+  local m1="${MIRRORS%% *}"
+
+  :>$TARGET/debootstrap/debpaths
+  for p in "$@"; do
+    for c in $COMPONENTS; do
+      local details=""
+      for m in $MIRRORS; do
+        local path="dists/$SUITE/$c/binary-$ARCH/Packages"
+        local pkgdest="$TARGET/$($DLDEST pkg "$SUITE" "$c" "$ARCH" "$m" "$path")"
+        if [ ! -e "$pkgdest" ]; then continue; fi
+        details="$($PKGDETAILS PKGS "$m" "$pkgdest" "$p")"
+        if [ "$details" = "$p -" ]; then details="" ; continue; fi
+        size="${details##* }"; details="${details% *}"
+        md5="${details##* }"; details="${details% *}"
+        local debdest="$($DLDEST deb $details)"
+        if get "$m/${details##* }" "$TARGET/$debdest" "$md5" "$size"; then
+	  echo >>$TARGET/debootstrap/debpaths "$p $debdest"
+          details="done"
+          break
+        fi
+      done
+      if [ "$details" != "" ]; then
+        break
+      fi
+    done
+    if [ "$details" != "done" ]; then
+      error 1 COULDNTDL "Couldn't download %s" "$p"
+    fi
+  done
+}
+
+resolve_deps () {
+  local m1="${MIRRORS%% *}"
+  local PKGS="$*"
+  local ALLPKGS="$PKGS"
+  local NEWPKGS=""
+
+  while true ; do
+    for c in $COMPONENTS; do
+      local path="dists/$SUITE/$c/binary-$ARCH/Packages"
+      local pkgdest="$TARGET/$($DLDEST pkg "$SUITE" "$c" "$ARCH" "$m1" "$path")"
+      local DEPPKGS=$("$PKGDETAILS" GETDEPS "$pkgdest" $ALLPKGS)
+      NEWPKGS=$(echo $NEWPKGS $DEPPKGS | tr ' ' '\n' | sort | uniq)
+    done
+    if [ "$NEWPKGS" = "$ALLPKGS" ] ; then
+      break
+    else
+      ALLPKGS="$NEWPKGS"
+    fi
+  done
+
+  ALLPKGS="$PKGS"
+
+  for c in $COMPONENTS; do
+    local path="dists/$SUITE/$c/binary-$ARCH/Packages"
+    local pkgdest="$TARGET/$($DLDEST pkg "$SUITE" "$c" "$ARCH" "$m1" "$path")"
+    local NEWPKGS2=$("$PKGDETAILS" PKGS REAL "$pkgdest" $NEWPKGS | sed -n 's/ .*REAL.*$//p')
+    ALLPKGS=$(echo "$NEWPKGS2 $ALLPKGS" | tr ' ' '\n' | sort | uniq)
+  done
+  echo "$ALLPKGS"
+
+  # XXX: I can't think how to deal well with dependency resolution and
+  #      lots of Packages files. -- aj 2005/06/12
+}
+

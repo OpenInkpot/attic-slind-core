@@ -1,3 +1,9 @@
+slind-core (0.3.14) unstable; urgency=low
+
+  * Add screen, sed, shadow and more gui stuff to package list.
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Wed, 13 Feb 2008 19:03:09 +0300
+
 slind-core (0.3.13) unstable; urgency=low
 
   * New version.

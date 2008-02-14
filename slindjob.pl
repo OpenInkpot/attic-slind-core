@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 
 use Config::IniFiles;
+use DBD::SQLite;
+use DBI;
 use Data::Dumper;
 
 # open user's slind-config.ini
@@ -21,6 +23,20 @@ our $since = '2005/01/01';
 our $pretty = 'short';
 our $maxth = '5'; # XXX: this should be defined in slind-config.ini as well
 our @pkglist_all, @pkglist_build, $rebuild_toolchains = 0;
+
+# path to overrides.db
+our $ovpath = $repodir. "/indices/overrides.db";
+unless (-f $ovpath) {
+	print "No overrides db found.\n";
+	exit 1;
+}
+
+# db handle
+our $ovh = DBI->connect("dbi:SQLite:dbname=$ovpath", "", "");
+unless (-f $ovpath) {
+	print "Can't open overrides db\n";
+	exit 1;
+}
 
 # set proxies, if we have to
 $ENV{http_proxy} = $scfg->val('common', 'http_proxy_url')
@@ -132,32 +148,29 @@ sub gitlog
 # since the time we last updated
 sub update_all
 {
-	opendir LD, $pkglistdir;
+	# obtain all package names known to overrides.db
+	my $sth = $ovh->prepare(
+		"SELECT DISTINCT(pkgname), 'host-tools' FROM overrides
+		  WHERE component='host-tools' UNION
+		 SELECT DISTINCT(pkgname), 'other' FROM overrides
+		  WHERE component != 'host-tools' ORDER BY pkgname");
+	$sth->execute();
 
-	my $file;
-	while ($file = readdir(LD)) {
-		next unless $file =~ m/\.pkglist$/;
-		open F, "$pkglistdir/$file";
+	my $row;
+	while (defined ($row = $sth->fetchrow_arrayref())) {
+		my $pkg = $row->[0];
+		push(@pkglist_all, $pkg) if $row->[1] ne 'host-tools';
 
-		my $pkg;
-		while ($pkg = <F>) {
-			chomp $pkg;
-			push(@pkglist_all, $pkg) if $file ne 'host-tools.pkglist';
-
-			spawn("grasp update $pkg", "Updating $pkg package");
-			spawn("grasp build $pkg", "Building $pkg source package");
-			my $changed = gitlog($pkg);
-			if ($file eq 'host-tools.pkglist') {
-				$rebuild_toolchains += $changed;
-			} else {
-				push @pkglist_build, $pkg if $changed;
-			}
+		spawn("grasp update $pkg", "Updating $pkg package");
+		spawn("grasp build $pkg", "Building $pkg source package");
+		my $changed = gitlog($pkg);
+		if ($row->[1] eq 'host-tools') {
+			$rebuild_toolchains += $changed;
+		} else {
+			push @pkglist_build, $pkg if $changed;
 		}
-
-		close F;
 	}
 
-	closedir LD;
 	spawn("slindak -r $repodir -F");
 	spawn("sudo env http_proxy=". $ENV{http_proxy}. " apt-get update");
 }

@@ -1,3 +1,19 @@
+slind-core (0.3.15) unstable; urgency=low
+
+  * New version.
+  [ Alexander Shishkin ]
+  * slindjob: use package names from overrides.db when obtaining sources
+  * add dependency to libdbd-sqlite3-perl for slindjob
+
+  [ Dmitry Baryshkov ]
+  * Reenable start-stop-daemon overriding
+  * Correctly generate components list
+  * Fix multi-component installations by overriding several functions
+  from main debootstrap. TODO: submit upstream
+  * Update slindctl to work with updated cross-shell
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Thu, 14 Feb 2008 17:47:18 +0300
+
 slind-core (0.3.14) unstable; urgency=low
 
   * Add screen, sed, shadow and more gui stuff to package list.

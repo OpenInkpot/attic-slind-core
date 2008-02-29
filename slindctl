@@ -177,26 +177,13 @@ copy_slind_core() {
 	# Are there any local configuration files?
 	if [ -f "$SLIND_USR_CONFIG" ]; then
 	    # Let's just copy it over there inside chroot.
-	    $ROOT_CMD cp $SLIND_USR_CONFIG $WORK_DIR/build/.slind/
+	    $ROOT_CMD cp $SLIND_USR_CONFIG $WORK_DIR/etc/slind/
 	fi
 	
 	if [ -f "$SLIND_USR_SUITES_CONFIG" ]; then
 	    # Let's just copy it over there inside chroot.
-	    $ROOT_CMD cp $SLIND_USR_SUITES_CONFIG $WORK_DIR/build/.slind/
+	    $ROOT_CMD cp $SLIND_USR_SUITES_CONFIG $WORK_DIR/etc/slind/
 	fi
-
-	_dir=`mktemp -d`
-	(cd $_dir && $ROOT_CMD dpkg-repack slind-core)
-	_depends=`dpkg-deb -f $_dir/slind-core*.deb Depends | sed -e "s/,/ /g"`
-	$CHROOTCMD_ROOT "apt-get install --yes --force-yes $_depends"
-
-	$ROOT_CMD dpkg --root=$WORK_DIR -i $_dir/slind-core*.deb
-	if [ "$?" != "0" ]; then
-		echo "Failed to copy installed slind-core package to $WORK_DIR chroot"
-		$ROOT_CMD rm -rf $_dir
-		exit 1
-	fi
-	$ROOT_CMD rm -rf $_dir
 }
 
 # 1.5. configure target
@@ -347,6 +334,30 @@ bootstrap_target() {
 	done
 }
 
+get_overrides_db() {
+	if ! [ -f "$WORK_DIR/$CHR_REPODIR/indices/overrides.db" ]
+	then
+		mkdir -p $WORK_DIR/$CHR_REPODIR/indices/
+		curl -f $SLIND_MIRROR/indices/overrides.db -o \
+			$WORK_DIR/$CHR_REPODIR/indices/overrides.db ||
+		die "downloading of $SLIND_MIRROR/indices/overrides.db failed"
+	fi
+}
+
+git_build() {
+	local pkgname="$1"
+	local tmp=`$CHROOTCMD_BUILD "mktemp -d -t build_$pkgname.XXXXXX"`
+	$CHROOTCMD_BUILD "$CHROOTENV git-clone ${GITBASE_URL}/$pkgname.git $tmp/$pkgname"
+	$CHROOTCMD_BUILD "cd $tmp/$pkgname && fakeroot ./debian/rules binary"
+	$CHROOTCMD_ROOT "cd $tmp/ && dpkg -i \`cut -f 1 -d' ' < $pkgname/debian/files\`"
+	rm -rf $WORK_DIR/$tmp
+}
+
+refresh_pool() {
+	$CHROOTCMD_BUILD "slindak -r $CHR_REPODIR -F"
+	$CHROOTCMD_ROOT "$CHROOTENV apt-get update" || die "Couldn't update apt lists"
+}
+
 case "$1" in
 	setup)
 		[ -n "$SKIP_LIST" ] && echo "WARNING!!! Skipping broken packages: $SKIP_LIST" >&2
@@ -379,7 +390,6 @@ case "$1" in
 		# affect maintainer-setup
 		dev_install $BASE_HST_MAINT_PKG_LIST
 		add_user
-		copy_slind_core
 		copy_tools
 		configure_tools
 		# Now we have full APT config.
@@ -388,18 +398,21 @@ case "$1" in
 	maintainer-build|maintainer-build-init)
 		$PRE_SLINDJOB_HOOK
 		set -e
+		get_overrides_db
 		case $1 in
 			maintainer-build)
-				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build"
+				$CHROOTCMD_ROOT "$CHROOTENV apt-get install slindak grasp slind-core"
 			;;
 			maintainer-build-init)
-				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --initialize-pool"
 				configure_apt_init
-				$CHROOTCMD_BUILD "$CHROOTENV /bin/sh /usr/lib/slind-core/slind-host-tools-bootstrap --build-init" || \
-				    die "Something wicked happend during tools build"
+				git_build slindak
+				git_build grasp
+				git_build slind-core
 			;;
 		esac
-		$CHROOTCMD_ROOT "$CHROOTENV apt-get update"
+##		refresh_pool is commented because slindak doesn't handle empty repos vell
+##		refresh_pool
+		copy_slind_core
 		$CHROOTCMD_BUILD "$CHROOTENV slindjob"
 		$CHROOTCMD_ROOT "$CHROOTENV apt-get update"
 		set +e

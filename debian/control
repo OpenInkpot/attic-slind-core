@@ -9,7 +9,7 @@ Package: slind-core
 Section: host-tools
 Priority: optional
 Architecture: all
-Depends: debootstrap, sudo, gawk, dpkg-repack
+Depends: debootstrap, sudo, gawk
 Description: SLIND cross-development environment tools
  This package includes core Slind tools like 'slindctl'. In theory, this is the
  only package which needs to be installed by a final user of Slind distribution.

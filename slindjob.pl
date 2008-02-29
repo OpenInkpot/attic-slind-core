@@ -7,7 +7,7 @@ use Data::Dumper;
 
 # open user's slind-config.ini
 our $scfg = new Config::IniFiles
-	-file => $ENV{HOME}. '/.slind/slind-config.ini',
+	-file => '/etc/slind/slind-config.ini',
 	-allowcontinue => 1;
 
 our $LOGTIME = timestamp();
@@ -19,10 +19,11 @@ our $repodir = $scfg->val('maintainer-common', 'chr_repodir');
 our $archlist = $scfg->val('target', 'target_arch');
 our $suite = $scfg->val('common', 'slind_suite');
 our $sudo = $scfg->val('common', 'root_cmd');
+our @toolchain = qw/binutils gcc.* glibc uclibc linux-kernel-headers gdb pkg-config/;
 our $since = '2005/01/01';
 our $pretty = 'short';
 our $maxth = '5'; # XXX: this should be defined in slind-config.ini as well
-our @pkglist_all, @pkglist_build, $rebuild_toolchains = 0;
+our @pkglist_all, @pkglist_build, @pkglist_host, $rebuild_toolchains = 0;
 
 # path to overrides.db
 our $ovpath = $repodir. "/indices/overrides.db";
@@ -43,6 +44,8 @@ $ENV{http_proxy} = $scfg->val('common', 'http_proxy_url')
 	if $scfg->val('common', 'http_proxy_url');
 $ENV{ftp_proxy} = $scfg->val('common', 'ftp_proxy_url')
 	if $scfg->val('common', 'ftp_proxy_url');
+
+our $rootcmd = "sudo env http_proxy=". $ENV{http_proxy} . " ftp_proxy=" . $ENV{ftp_proxy} . " ";
 
 our $comp = 'core debug security gui';
 our %rootfs = (
@@ -68,6 +71,8 @@ logmsg("Building \"$suite\" ($LOGTIME).\nLast build date: $since.\n");
 
 update_all();
 
+logmsg("Host-packages to be rebuilt during this run: ".
+	join(', ', @pkglist_host). "\n");
 logmsg("Packages to be rebuilt during this run: ".
 	join(', ', @pkglist_build). "\n");
 logmsg("Architectures: $archlist\n");
@@ -165,14 +170,43 @@ sub update_all
 		spawn("grasp build $pkg", "Building $pkg source package");
 		my $changed = gitlog($pkg);
 		if ($row->[1] eq 'host-tools') {
-			$rebuild_toolchains += $changed;
+			foreach $regex (@toolchain) {
+				if ($pkg =~ /$regex/) {
+					$rebuild_toolchains += $changed;
+					goto END_TOOLS;
+				}
+			}
+			push @pkglist_host, $pkg;
+			END_TOOLS:
 		} else {
 			push @pkglist_build, $pkg if $changed;
 		}
 	}
 
 	spawn("slindak -r $repodir -F");
-	spawn("sudo env http_proxy=". $ENV{http_proxy}. " apt-get update");
+	spawn($rootcmd . "apt-get update");
+}
+
+sub restoretoolchain
+{
+	my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
+	chomp $hostarch;
+
+	my $deps;
+	open P, "apt-cache show $hostarch-toolchain |";
+	while (<P>) {
+		if (m/Depends: (.*)/) {
+			$deps = $1;
+		}
+	}
+	close P;
+	if ($? == 0 && $deps ne "") {
+		die ("Can't parse depends: $deps") unless ($deps =~ /.*g\+\+-([^-,]*)-([^ ,]*)[ ,].*/);
+		spawn("sudo apt-get --purge remove --yes --force-yes cpp-$1-$2 binutils-$2 pkg-config-$2 libc6-$hostarch-cross",
+				"Removing current toolchain");
+		spawn($rootcmd . "apt-get install " .
+				"--yes --force-yes g++", "Installing host toolchain");
+	}
 }
 
 # rebuild anything that must be rebuilt
@@ -181,8 +215,38 @@ sub rebuildall
 	my ($pid, $arch);
 	my $th = 0;
 	my %pidhash;
+	my $pkg;
+
+	restoretoolchain();
+
+	system("rm -rf /tmp/build");
+	mkdir("/tmp/build");
+	foreach $pkg (@pkglist_host) {
+		spawn("cd /tmp/build && fakeroot apt-get --compile source $pkg",
+					"Rebuilding host package $pkg");
+	}
+
+	my @hostpkgs;
+	opendir TD, "/tmp/build";
+	while ($pkg = readdir(TD)) {
+		next unless $pkg =~ m/([^_]*).*\.deb$/;
+		# toolchain package neeeds some additional care
+		push(@hostpkgs, $1) unless ($1 eq "toolchain-package");
+		system("slindak -r $repodir -i /tmp/build/$pkg -s $suite");
+	}
+	closedir TD;
+
+	# update repository indices
+	spawn("slindak -r $repodir -F");
+	spawn($rootcmd . "apt-get update");
+	spawn($rootcmd . "apt-get install " .
+				"--yes --force-yes " .
+				join(' ', @hostpkgs));
+
 
 	if ($rebuild_toolchains) {
+		# This could fail in maintainer-like mode
+		spawn($rootcmd . "apt-get install toolchain-package");
 		for $arch (split / /, $archlist) {
 			$ENV{SETNJOBS} = $maxth;
 			$ENV{USENJOBS} = $maxth;
@@ -199,19 +263,26 @@ sub rebuildall
 					"-s $suite");
 			}
 			closedir TD;
+
+			# We may have replaced the toolchain. Restore it.
+			restoretoolchain();
 		}
 
 		# update repository indices
 		system("slindak -r $repodir -F");
-	} else {
-		my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
-		chomp $hostarch;
+	}
 
-		# install binary toolchains
-		spawn("sudo apt-get install --yes --force-yes $hostarch-toolchain ".
-			join(' ', map {
-				"$_-cross-toolchain"
-			} split / /, $archlist));
+	my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
+	chomp $hostarch;
+
+	# install binary toolchains
+	spawn($rootcmd . "apt-get update");
+	spawn($rootcmd . "apt-get install --yes --force-yes ".
+		join(' ', map {
+			"$_-cross-toolchain"
+		} split / /, $archlist));
+	if ($archlist =~ /$hostarch/) {
+		spawn($rootcmd . "apt-get install --yes --force-yes $hostarch-toolchain");
 	}
 
 	for $arch (split / /, $archlist) {

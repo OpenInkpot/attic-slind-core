@@ -42,7 +42,6 @@ binary-arch: install
 	cp slind-suites.ini $(dir_slind-core)/etc/slind/slind-suites.ini
 	cp libpoolcare.sh $(dir_slind-core)/usr/lib/slind-core
 	cp libutils.sh $(dir_slind-core)/usr/lib/slind-core
-	cp slind-host-tools-bootstrap $(dir_slind-core)/usr/lib/slind-core
 	cp logging.sh $(dir_slind-core)/usr/lib/slind-core
 	cp debootstrap/clydesdale $(dir_slind-core)/usr/lib/slind-core/debootstrap
 	cp debootstrap/percheron $(dir_slind-core)/usr/lib/slind-core/debootstrap
@@ -53,7 +52,6 @@ binary-arch: install
 	mkdir -p $(dir_slind-maintainer-core)/var/lib/slind-maint
 	cp poolcare $(dir_slind-maintainer-core)/usr/bin
 	cp pool-injectdeb $(dir_slind-maintainer-core)/usr/bin
-	cp slind-host-tools-bootstrap $(dir_slind-maintainer-core)/usr/bin
 	cp slindjob.pl $(dir_slind-maintainer-core)/usr/bin/slindjob
 	cp *.pkglist $(dir_slind-maintainer-core)/var/lib/slind-maint
 	chmod 755 $(dir_slind-maintainer-core)/usr/bin/*

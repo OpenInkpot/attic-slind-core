@@ -246,7 +246,8 @@ sub rebuildall
 
 	if ($rebuild_toolchains) {
 		# This could fail in maintainer-like mode
-		spawn($rootcmd . "apt-get install toolchain-package");
+		spawn($rootcmd . "apt-get install " .
+				"--yes --force-yes toolchain-package");
 		for $arch (split / /, $archlist) {
 			$ENV{SETNJOBS} = $maxth;
 			$ENV{USENJOBS} = $maxth;

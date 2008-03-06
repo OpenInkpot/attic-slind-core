@@ -1,3 +1,13 @@
+slind-core (0.3.17) unstable; urgency=low
+
+  * New version.
+  * [ Alexander Shishkin ]
+  * version bump
+  * slindjob: remove interactiveness
+  * slindjob: disable "restoretoolchain" for now
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Thu,  6 Mar 2008 18:56:12 +0300
+
 slind-core (0.3.16) unstable; urgency=low
 
   * New version.

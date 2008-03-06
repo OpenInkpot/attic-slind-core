@@ -189,6 +189,7 @@ sub update_all
 
 sub restoretoolchain
 {
+	return;
 	my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
 	chomp $hostarch;
 

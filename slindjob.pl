@@ -189,7 +189,6 @@ sub update_all
 
 sub restoretoolchain
 {
-	return;
 	my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
 	chomp $hostarch;
 
@@ -281,11 +280,10 @@ sub rebuildall
 	spawn($rootcmd . "apt-get update");
 	spawn($rootcmd . "apt-get install --yes --force-yes ".
 		join(' ', map {
-			"$_-cross-toolchain"
+			$_ eq $hostarch
+				? "$_-toolchain $_-cross-toolchain"
+				: "$_-cross-toolchain"
 		} split / /, $archlist));
-	if ($archlist =~ /$hostarch/) {
-		spawn($rootcmd . "apt-get install --yes --force-yes $hostarch-toolchain");
-	}
 
 	for $arch (split / /, $archlist) {
 retry:

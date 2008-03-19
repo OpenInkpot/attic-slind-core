@@ -401,7 +401,7 @@ case "$1" in
 		get_overrides_db
 		case $1 in
 			maintainer-build)
-				$CHROOTCMD_ROOT "$CHROOTENV apt-get install slindak grasp slind-core"
+				$CHROOTCMD_ROOT "$CHROOTENV apt-get --yes --force-yes install slindak grasp slind-maintainer-core"
 			;;
 			maintainer-build-init)
 				configure_apt_init

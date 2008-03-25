@@ -83,8 +83,6 @@ echo "Fake ldconfig for an uclibc system"
 exit 0
 EOF
         chmod 755 "$TARGET/sbin/ldconfig"
-    else
-        in_target /sbin/ldconfig
     fi
     
     if [ ! -f "$TARGET/sbin/start-stop-daemon" ]; then
@@ -104,6 +102,22 @@ EOF
 
     p; progress $baseprog $bases INSTBASE "Installing base system" #1
     info INSTCORE "Installing core packages..."
+
+  if [ ! -f "$TARGET/sbin/ldconfig.REAL" ]
+  then
+  [ -f "$TARGET/sbin/ldconfig" ] && mv "$TARGET/sbin/ldconfig" "$TARGET/sbin/ldconfig.REAL"
+  echo \
+"#!/bin/sh
+[ "x\$FAKECHROOT_BASE" != "x" ] || exec /sbin/ldconfig.REAL "$*"
+echo
+echo \"Warning: Fake ldconfig called, doing nothing\"" > "$TARGET/sbin/ldconfig"
+  chmod 755 "$TARGET/sbin/ldconfig"
+
+  echo \
+"/sbin/ldconfig
+/sbin/ldconfig.REAL
+fakechroot" >> "$TARGET/var/lib/dpkg/diversions"
+    fi
 
     p; progress $baseprog $bases INSTBASE "Installing base system" #2
     x_core_install libgcc1 $LIBC6

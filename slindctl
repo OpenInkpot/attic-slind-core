@@ -400,13 +400,14 @@ case "$1" in
 		get_overrides_db
 		case $1 in
 			maintainer-build)
-				$CHROOTCMD_ROOT "$CHROOTENV apt-get --yes --force-yes install slindak grasp slind-maintainer-core"
+				$CHROOTCMD_ROOT "$CHROOTENV apt-get --yes --force-yes install slindak grasp slind-maintainer-core dpkg dpkg-dev"
 			;;
 			maintainer-build-init)
 				configure_apt_init
 				git_build slindak
 				git_build grasp
 				git_build slind-core
+				git_build dpkg
 			;;
 		esac
 ##		refresh_pool is commented because slindak doesn't handle empty repos vell

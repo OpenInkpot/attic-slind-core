@@ -22,7 +22,7 @@ Section: host-tools
 Priority: optional
 Architecture: all
 Depends: slind-core, grasp, sqlite3, gawk, curl, slindak, libconfig-inifiles-perl, libdbd-sqlite3-perl
-Description: SLIND maintainance helpers
+Description: SLIND maintenance helpers
  This package includes additional tools which are likely to be only required by
  maintainers of Slind packages or Slind developers and won't be of much help for
  people trying just to produce a root filesystem for their target out of

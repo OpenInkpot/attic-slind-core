@@ -1,3 +1,18 @@
+slind-core (0.3.18) unstable; urgency=low
+
+  * New version.
+
+  [ Alexander Shishkin ]
+  * slindjob: fix more wreckage regarding host toolchains
+  * packaging: spelling fix from Dmitry Baryshkov
+
+  [ Dmitry Baryshkov ]
+  * Fix slindctl maintainer-build
+  * Fix slindctl bootstrap
+  * Provide debootstrap ldconfig divertion (4th version).
+
+ -- Alexander Shishkin <virtuoso@slind.org>  Fri,  7 Mar 2008 15:13:45 +0300
+
 slind-core (0.3.17) unstable; urgency=low
 
   * New version.

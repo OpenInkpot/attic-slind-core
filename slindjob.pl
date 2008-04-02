@@ -191,22 +191,20 @@ sub restoretoolchain
 {
 	my $hostarch = `dpkg-architecture -qDEB_BUILD_ARCH 2>/dev/null`;
 	chomp $hostarch;
+	my $hosttype= `dpkg-architecture -qDEB_BUILD_GNU_TYPE 2>/dev/null`;
+	chomp $hosttype;
 
-	my $deps;
-	open P, "apt-cache show $hostarch-toolchain |";
-	while (<P>) {
-		if (m/Depends: (.*)/) {
-			$deps = $1;
-		}
-	}
-	close P;
-	if ($? == 0 && $deps ne "") {
-		die ("Can't parse depends: $deps") unless ($deps =~ /.*g\+\+-([^-,]*)-([^ ,]*)[ ,].*/);
-		spawn("sudo apt-get --purge remove --yes --force-yes cpp-$1-$2 binutils-$2 pkg-config-$2 libc6-$hostarch-cross",
-				"Removing current toolchain");
-		spawn($rootcmd . "apt-get install " .
+	spawn("sudo apt-get --purge remove --yes --force-yes ".
+			"binutils-$hosttype ".
+			"pkg-config-$hosttype ".
+			"libc6-$hostarch-cross ".
+			"linux-kernel-headers-$hostarch-cross ".
+			"", "Removing current toolchain");
+	spawn("sudo apt-get --purge remove --yes --force-yes ".
+			"cpp-.*-$hosttype ".
+			"", "Removing current toolchain");
+	spawn($rootcmd . "apt-get install " .
 				"--yes --force-yes g++", "Installing host toolchain");
-	}
 }
 
 # rebuild anything that must be rebuilt

@@ -155,10 +155,8 @@ sub update_all
 {
 	# obtain all package names known to overrides.db
 	my $sth = $ovh->prepare(
-		"SELECT DISTINCT(pkgname), 'host-tools' FROM overrides
-		  WHERE component='host-tools' UNION
-		 SELECT DISTINCT(pkgname), 'other' FROM overrides
-		  WHERE component != 'host-tools' ORDER BY pkgname");
+		"SELECT DISTINCT(pkgname), component FROM overrides
+		  WHERE suite='$suite' ORDER BY pkgname");
 	$sth->execute();
 
 	my $row;

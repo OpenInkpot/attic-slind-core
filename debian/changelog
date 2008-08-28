@@ -1,3 +1,10 @@
+slind-core (0.3.19.oi1) unstable; urgency=low
+
+  * Enabled APT caching for /rootfs-*
+  * Re-enabled using $SHELL for slindctl chroot.
+
+ -- Mikhail Gusarov <dottedmag@dottedmag.net>  Fri, 29 Aug 2008 06:14:10 +0700
+
 slind-core (0.3.19) unstable; urgency=low
 
   * New version

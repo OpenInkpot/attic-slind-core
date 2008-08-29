@@ -1,3 +1,12 @@
+slind-core (0.3.19.oi2) unstable; urgency=low
+
+  * No longer unmounts APT cache directories during 'slindctl chroot'.
+  * rootfs-$ARCH APT cache directory moved to proper location.
+  * bootstrap-host and bootstrap-target functions now delegate actual work
+    to sc-bootstrap-host and sc-bootstrap-target in devenv.
+
+ -- Mikhail Gusarov <dottedmag@dottedmag.net>  Fri, 29 Aug 2008 19:56:06 +0700
+
 slind-core (0.3.19.oi1) unstable; urgency=low
 
   * Enabled APT caching for /rootfs-*

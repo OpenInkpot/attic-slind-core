@@ -290,10 +290,6 @@ configure_tools() {
 	echo "repo_format 2"                  >> $GRASP_CONFIG
 }
 
-try_bind_mount() {
-    $CHROOTCMD_ROOT "fgrep -q $2 < /etc/mtab || mount --bind $1 $2"
-}
-
 # 5. bootstrap i386 rootfs
 bootstrap_host() {
     $CHROOTCMD_BUILD "$CHROOTENV /bin/sh -c 'sc-bootstrap-host'"

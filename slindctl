@@ -330,12 +330,26 @@ refresh_pool() {
 	$CHROOTCMD_ROOT "$CHROOTENV apt-get update" || die "Couldn't update apt lists"
 }
 
+try_bind_mount() {
+    $CHROOTCMD_ROOT "fgrep -q $2 < /etc/mtab || mount --bind $1 $2"
+}
+
 link_apt_caches() {
     ARCHIVES=/var/cache/apt/archives
-    (cd $WORK_DIR;
-        for i in rootfs-*; do
-            try_bind_mount "$ARCHIVES" "/$i$ARCHIVES"
-        done)
+    (cd $WORK_DIR
+    for i in rootfs-*; do
+        case $i in
+            rootfs-$HOSTARCH)
+                try_bind_mount "$ARCHIVES" "/$i$ARCHIVES"
+                ;;
+            rootfs-\*)
+                ;;
+            *)
+                $CHROOTCMD_BUILD "mkdir -p apt"
+                try_bind_mount "/build/apt /$i$ARCHIVES"
+                ;;
+        esac
+    done)
 }
 
 case "$1" in

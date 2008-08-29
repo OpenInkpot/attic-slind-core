@@ -290,6 +290,10 @@ configure_tools() {
 	echo "repo_format 2"                  >> $GRASP_CONFIG
 }
 
+try_bind_mount() {
+    $CHROOTCMD_ROOT "fgrep -q $2 < /etc/mtab || mount --bind $1 $2"
+}
+
 # 5. bootstrap i386 rootfs
 bootstrap_host() {
 	local _debootstrap_script
@@ -307,7 +311,8 @@ bootstrap_host() {
 
 	$ROOT_CMD mkdir -p $WORK_DIR/rootfs-$HOSTARCH
     $CHROOTCMD_ROOT mkdir -p /rootfs-$HOSTARCH$ARCHIVES
-    $CHROOTCMD_ROOT mount --bind $ARCHIVES /rootfs-$HOSTARCH$ARCHIVES
+    # In case someone already mounted it
+    try_bind_mount "$ARCHIVES" "/rootfs-$HOSTARCH$ARCHIVES"
 	$CHROOTCMD_ROOT "debootstrap --components=core $SLIND_SUITE /rootfs-$HOSTARCH $SLIND_MIRROR $_debootstrap_script"
 
 	# suid ldconfig binary, otherwise we won't be able to run it as build
@@ -333,7 +338,8 @@ bootstrap_target() {
 
         ARCHIVES=/var/cache/apt/archives
         $CHROOTCMD_ROOT mkdir -p /rootfs-$ARCH$ARCHIVES
-        $CHROOTCMD_ROOT mount --bind $ARCHIVES /rootfs-$ARCH$ARCHIVES
+
+        try_bind_mount "$ARCHIVES" "/rootfs-$ARCH$ARCHIVES"
 
 		$CHROOTCMD_BUILD "cross-shell bs $ARCH"
 		if [ -n "$_target_apt" ]
@@ -374,7 +380,7 @@ link_apt_caches() {
     ARCHIVES=/var/cache/apt/archives
     (cd $WORK_DIR;
         for i in rootfs-*; do
-            $CHROOTCMD_ROOT "umount /$i$ARCHIVES 2>/dev/null; mount --bind $ARCHIVES /$i$ARCHIVES"
+            try_bind_mount "$ARCHIVES" "/$i$ARCHIVES"
         done)
 }
 

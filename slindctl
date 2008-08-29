@@ -342,7 +342,7 @@ link_apt_caches() {
                 ;;
             *)
                 $CHROOTCMD_BUILD "mkdir -p apt"
-                try_bind_mount "/build/apt /$i$ARCHIVES"
+                try_bind_mount "/build/apt" "/$i$ARCHIVES"
                 ;;
         esac
     done)
